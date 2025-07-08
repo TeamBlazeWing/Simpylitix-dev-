@@ -1,17 +1,66 @@
 
 import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { FaTimes, FaMapMarkerAlt, FaCalendarAlt, FaDollarSign, FaUsers, FaTicketAlt, FaClock, FaUserCheck } from "react-icons/fa";
 
 // Event Details Modal
 const EventModal = ({ event, onClose, onEnroll, enrolling, currentUserId }) => {
   const navigate = useNavigate();
+  const [enrollmentCount, setEnrollmentCount] = useState(0);
+  const [loadingEnrollments, setLoadingEnrollments] = useState(false);
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  
+  // Update local enrollment state when event changes
+  useEffect(() => {
+    setIsEnrolled(event?.isEnrolled || false);
+  }, [event?.isEnrolled]);
+  
+  // Fetch enrollment count for this event
+  useEffect(() => {
+    const fetchEnrollmentCount = async () => {
+      if (!event?.id) return;
+      
+      try {
+        setLoadingEnrollments(true);
+        
+        const token = localStorage.getItem("accessToken");
+        const headers = {
+          'Content-Type': 'application/json',
+        };
+        
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const response = await fetch(`/api/enrollments/event/${event.id}`, {
+          method: 'GET',
+          headers
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const enrollments = data.data || data || [];
+          setEnrollmentCount(enrollments.length);
+        } else {
+          if (response.status === 401) {
+            console.log('Unauthorized - enrollment count may require authentication');
+          } else {
+            console.log('Failed to fetch enrollment count');
+          }
+          setEnrollmentCount(0);
+        }
+      } catch (error) {
+        console.error('Error fetching enrollment count:', error);
+        setEnrollmentCount(0);
+      } finally {
+        setLoadingEnrollments(false);
+      }
+    };
+    
+    fetchEnrollmentCount();
+  }, [event?.id]);
   
   if (!event) return null;
-  
-
-  const isEnrolled = false; 
-  const isEventFull = event.attendees >= (event.maxAttendees || 100);
-  const enrollmentPercentage = ((event.attendees || 0) / (event.maxAttendees || 100)) * 100;
 
   const handleBuyTicket = () => {
     // Store the selected event in localStorage for the buy ticket page
@@ -20,8 +69,17 @@ const EventModal = ({ event, onClose, onEnroll, enrolling, currentUserId }) => {
   };
 
   const handleEnroll = () => {
-    // Allow both enrollment and unenrollment
+    // Pass the current enrollment status to the parent component
     onEnroll(event.id, isEnrolled);
+    
+    // Update local enrollment status and count immediately for better UX
+    setIsEnrolled(!isEnrolled);
+    
+    if (isEnrolled) {
+      setEnrollmentCount(prev => Math.max(0, prev - 1));
+    } else {
+      setEnrollmentCount(prev => prev + 1);
+    }
   };
   
   return (
@@ -148,35 +206,32 @@ const EventModal = ({ event, onClose, onEnroll, enrolling, currentUserId }) => {
                 )}
               </div>
 
-              {/* Event Capacity */}
-              <div className="bg-gradient-to-r from-blue-600/20 to-indigo-600/20 backdrop-blur-sm rounded-xl p-4 border border-blue-500/30">
+              {/* Enrollment Count */}
+              <div className="bg-gradient-to-r from-emerald-600/20 to-green-600/20 backdrop-blur-sm rounded-xl p-4 border border-emerald-500/30">
                 <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-blue-600/30 rounded-lg">
-                    <FaUsers className="text-blue-400" />
+                  <div className="p-2 bg-emerald-600/30 rounded-lg">
+                    <FaUsers className="text-emerald-400" />
                   </div>
-                  <h3 className="text-white font-semibold">Capacity</h3>
+                  <h3 className="text-white font-semibold">Enrollments</h3>
                 </div>
                 <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-300 text-sm">
-                      {event.attendees || 0} / {event.maxAttendees || 100} attendees
-                    </span>
-                    <span className="text-blue-400 text-xs font-semibold">
-                      {((event.maxAttendees || 100) - (event.attendees || 0))} spots left
-                    </span>
-                  </div>
+                  {loadingEnrollments ? (
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-400"></div>
+                      <span className="text-gray-300 text-sm">Loading...</span>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-300 text-sm">Total Enrolled:</span>
+                      <span className="text-emerald-400 text-lg font-bold">{enrollmentCount}</span>
+                    </div>
+                  )}
                   
-                  {/* Progress bar */}
-                  <div className="w-full bg-gray-700/50 rounded-full h-2 overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-1000 ease-out"
-                      style={{ width: `${enrollmentPercentage}%` }}
-                    />
-                  </div>
-                  
-                  <div className="text-right">
-                    <span className="text-xs text-gray-400">{enrollmentPercentage.toFixed(0)}% full</span>
-                  </div>
+                  {isEnrolled && (
+                    <div className="text-emerald-400 text-xs font-semibold bg-emerald-600/20 rounded px-2 py-1 text-center">
+                      ✓ YOU ARE ENROLLED
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -281,14 +336,12 @@ const EventModal = ({ event, onClose, onEnroll, enrolling, currentUserId }) => {
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
               <button
                 onClick={handleEnroll}
-                disabled={enrolling || (isEventFull && !isEnrolled)}
+                disabled={enrolling}
                 className={`flex-1 font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 active:scale-95 flex items-center justify-center shadow-lg backdrop-blur-sm border ${
                   isEnrolled 
                     ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white border-red-500/30 shadow-red-500/25' 
-                    : isEventFull 
-                      ? 'bg-gray-600/50 text-gray-400 cursor-not-allowed border-gray-600/30'
-                      : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-blue-500/30 shadow-blue-500/25'
-                } ${enrolling ? 'opacity-70 cursor-not-allowed' : (!isEventFull || isEnrolled) ? 'hover:shadow-xl' : ''}`}
+                    : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-blue-500/30 shadow-blue-500/25'
+                } ${enrolling ? 'opacity-70 cursor-not-allowed' : 'hover:shadow-xl'}`}
               >
                 {enrolling ? (
                   <>
@@ -298,7 +351,7 @@ const EventModal = ({ event, onClose, onEnroll, enrolling, currentUserId }) => {
                 ) : (
                   <>
                     <FaUserCheck className="mr-3" />
-                    {isEnrolled ? 'Unenroll' : isEventFull ? 'Event Full' : 'Enroll Now'}
+                    {isEnrolled ? 'Unenroll' : 'Enroll Now'}
                   </>
                 )}
               </button>

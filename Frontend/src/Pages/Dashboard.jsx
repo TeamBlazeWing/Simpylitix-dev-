@@ -18,12 +18,17 @@ const Dashboard = () => {
     priceRange: "All"
   });
   const [events, setEvents] = useState([]);
+  const [rawEvents, setRawEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [enrolling, setEnrolling] = useState(false);
+  const [userEnrollments, setUserEnrollments] = useState([]);
   const navigate = useNavigate();
 
   const transformEventData = (backendEvent) => {
+    // Check if current user is enrolled in this event
+    const isEnrolled = userEnrollments.some(enrollment => enrollment.eventId === backendEvent._id);
+    
     return {
       id: backendEvent._id,
       title: backendEvent.title,
@@ -42,6 +47,7 @@ const Dashboard = () => {
       maxAttendees: backendEvent.maxAttendees || 100,
       attendees: backendEvent.attendees || 0,
       tags: backendEvent.tags || [],
+      isEnrolled: isEnrolled,
       // Handle new ticket structure with totalQuantity, availableQuantity, soldQuantity
       tickets: backendEvent.tickets && backendEvent.tickets.length > 0 
         ? backendEvent.tickets.map(ticket => ({
@@ -109,13 +115,49 @@ const Dashboard = () => {
     };
   };
 
+  // Fetch user enrollments
+  const fetchUserEnrollments = async () => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      const userId = localStorage.getItem("userId");
+      
+      if (!token || !userId) {
+        setUserEnrollments([]);
+        return;
+      }
+      
+      const response = await fetch('/api/enrollments/my', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('User enrollments:', data);
+        setUserEnrollments(data.data || data || []);
+      } else {
+        console.log('Failed to fetch user enrollments');
+        setUserEnrollments([]);
+      }
+    } catch (error) {
+      console.error('Error fetching user enrollments:', error);
+      setUserEnrollments([]);
+    }
+  };
+
   // Fetch events from API 
   useEffect(() => {
-    const fetchEvents = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
-        console.log('Fetching events from API...');
+        console.log('Fetching events and enrollments from API...');
+        
+        // Fetch user enrollments first
+        await fetchUserEnrollments();
         
         const token = localStorage.getItem("accessToken");
         
@@ -162,8 +204,8 @@ const Dashboard = () => {
               throw new Error('Invalid response format: events array not found');
             }
             
-            const transformedEvents = eventsArray.map(transformEventData);
-            setEvents(transformedEvents);
+            // Transform events will be handled in a separate useEffect
+            setRawEvents(eventsArray);
             return;
           }
           
@@ -185,22 +227,29 @@ const Dashboard = () => {
           throw new Error('Invalid response format: events array not found');
         }
         
-        const transformedEvents = eventsArray.map(transformEventData);
-        console.log('Transformed events:', transformedEvents);
-        console.log('Sample event attendees:', transformedEvents[0]?.attendees);
-        setEvents(transformedEvents);
+        // Transform events will be handled in a separate useEffect
+        setRawEvents(eventsArray);
         
       } catch (error) {
         console.error("Failed to load events:", error);
         setError(`Failed to load events: ${error.message}`);
-        setEvents([]);
+        setRawEvents([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchEvents();
+    fetchData();
   }, []);
+
+  // Transform events when userEnrollments or rawEvents change
+  useEffect(() => {
+    if (rawEvents.length > 0) {
+      const transformedEvents = rawEvents.map(transformEventData);
+      console.log('Transformed events:', transformedEvents);
+      setEvents(transformedEvents);
+    }
+  }, [userEnrollments, rawEvents]);
 
   useEffect(() => {
     const loggedInUser = localStorage.getItem("loggedInUser");
@@ -236,13 +285,15 @@ const Dashboard = () => {
         return;
       }
       
-      console.log(`${isCurrentlyEnrolled ? 'Unenrolling from' : 'Enrolling in'} event ${eventId}...`);
+      // Get current enrollment status from the event data
+      const event = events.find(e => e.id === eventId);
+      const actuallyEnrolled = event ? event.isEnrolled : false;
       
-      const endpoint = isCurrentlyEnrolled 
-        ? `/api/events/${eventId}/unregister`
-        : `/api/events/${eventId}/register`;
+      console.log(`${actuallyEnrolled ? 'Unenrolling from' : 'Enrolling in'} event ${eventId}...`);
       
-      const method = isCurrentlyEnrolled ? 'DELETE' : 'POST';
+      // Use new enrollment API endpoints
+      const endpoint = `/api/enrollments/event/${eventId}`;
+      const method = actuallyEnrolled ? 'DELETE' : 'POST';
       
       const response = await fetch(endpoint, {
         method: method,
@@ -261,44 +312,22 @@ const Dashboard = () => {
         }
         
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `${isCurrentlyEnrolled ? 'Unenrollment' : 'Enrollment'} failed`);
+        throw new Error(errorData.message || `${actuallyEnrolled ? 'Unenrollment' : 'Enrollment'} failed`);
       }
       
       const data = await response.json();
-      console.log(`${isCurrentlyEnrolled ? 'Unenrollment' : 'Enrollment'} response:`, data);
+      console.log(`${actuallyEnrolled ? 'Unenrollment' : 'Enrollment'} response:`, data);
       
-      // Update local events state
-      setEvents(events.map(event => {
-        if (event.id === eventId) {
-          const updatedAttendeeCount = isCurrentlyEnrolled 
-            ? Math.max(0, event.attendees - 1)
-            : event.attendees + 1;
-          
-          return { 
-            ...event, 
-            attendees: updatedAttendeeCount,
-            availableSpots: event.maxAttendees - updatedAttendeeCount,
-            status: updatedAttendeeCount >= event.maxAttendees ? 'Full' : 'Available'
-          };
-        }
-        return event;
-      }));
-      
-      // Update selected event if it's currently open
-      if (selectedEvent && selectedEvent.id === eventId) {
-        const updatedAttendeeCount = isCurrentlyEnrolled 
-          ? Math.max(0, selectedEvent.attendees - 1)
-          : selectedEvent.attendees + 1;
-        
-        setSelectedEvent({ 
-          ...selectedEvent, 
-          attendees: updatedAttendeeCount,
-          availableSpots: selectedEvent.maxAttendees - updatedAttendeeCount,
-          status: updatedAttendeeCount >= selectedEvent.maxAttendees ? 'Full' : 'Available'
-        });
+      // Update userEnrollments state
+      if (actuallyEnrolled) {
+        // Remove enrollment from userEnrollments
+        setUserEnrollments(prev => prev.filter(enrollment => enrollment.eventId !== eventId));
+      } else {
+        // Add enrollment to userEnrollments
+        setUserEnrollments(prev => [...prev, { eventId, userId }]);
       }
       
-      const successMessage = isCurrentlyEnrolled 
+      const successMessage = actuallyEnrolled 
         ? '✅ Successfully unenrolled from the event!' 
         : '🎉 Successfully enrolled in the event!';
       alert(successMessage);

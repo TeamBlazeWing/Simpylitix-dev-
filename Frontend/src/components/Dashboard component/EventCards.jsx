@@ -2,10 +2,8 @@
 const EventCards = ({ events, onEventClick, currentUserId }) => (
   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8 px-4">
     {events.map((event, idx) => {
-      // Check if current user is enrolled (handle both string IDs and object IDs)
-      const isEnrolled = event.attendees && currentUserId && event.attendees.some(attendeeId => 
-        typeof attendeeId === 'string' ? attendeeId === currentUserId : attendeeId._id === currentUserId
-      );
+      // Use the isEnrolled property from the event data
+      const isEnrolled = event.isEnrolled || false;
       
       // Format creation date
       const creationDate = event.createdAt ? new Date(event.createdAt).toLocaleDateString() : 'N/A';

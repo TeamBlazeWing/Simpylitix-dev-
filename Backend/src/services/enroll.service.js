@@ -27,9 +27,8 @@ exports.getEnrollmentsByEvent = async (eventId) => {
 
   // Get all enrollments for the event
   const enrollments = await Enrollment.find({ eventId });
-  if (!enrollments || enrollments.length === 0) throw new Error('No enrollments found for this event');
-
-  return enrollments;
+  
+  return { data: enrollments || [] };
 };
 
 exports.getMyEnrollments = async (userId) => {
@@ -38,9 +37,8 @@ exports.getMyEnrollments = async (userId) => {
 
   // Get all enrollments for the user
   const enrollments = await Enrollment.find({ userId });
-  if (!enrollments || enrollments.length === 0) throw new Error('No enrollments found for this user');
-
-  return enrollments;
+  
+  return { data: enrollments || [] };
 };
 
 // Cancel enrollment
