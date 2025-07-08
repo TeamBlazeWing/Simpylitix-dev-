@@ -5,7 +5,7 @@ const { mongoURI } = require('./env');
 async function connectDB() {
   try {
     await mongoose.connect(mongoURI, {
-      dbName: 'simplytix', // Optional: set DB name here or inside URI
+      dbName: 'simplytix_Development', // Optional: set DB name here or inside URI
     });
     console.log('✅ MongoDB connected with Mongoose');
   } catch (err) {

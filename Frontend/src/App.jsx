@@ -3,10 +3,8 @@ import Signup from './Pages/Signup'
 import Login from './Pages/Login'
 import Dashboard from './Pages/Dashboard'
 import FogetPassword from './components/FogetPassword/FogetPassword'
-import Event from './components/Event/Event' 
 import About from './Pages/Aboutus'
 import Contactus from './Pages/Contactus'
-import Messages from './components/Messages/Messages'
 import Payment from './Pages/Payment' 
 import MyTickets from './Pages/MyTickets'
 import Myevents from './Pages/Myevents' 
@@ -24,7 +22,6 @@ function App() {
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contactus />} />
         <Route path="/mytickets" element={<MyTickets />} />
-        <Route path="/messages" element={<Messages />} />
         <Route path="/payment" element={<Payment />} />
         <Route path="/myevents" element={<Myevents />} />
         {/* Add more routes as needed */}
