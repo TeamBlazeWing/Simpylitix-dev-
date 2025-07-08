@@ -39,7 +39,11 @@ exports.getMyEnrollments = async (userId) => {
   const enrollments = await Enrollment.find({ userId })
     .populate({
       path: 'eventId',
-      select: 'title description type date location district imageUrl price tickets maxAttendees'
+      select: 'title description type date time location district imageUrl price tickets maxAttendees createdBy createdAt updatedAt tags eventCode totalSoldTickets totalAvailableTickets totalTickets',
+      populate: {
+        path: 'createdBy',
+        select: 'name email'
+      }
     })
     .sort({ createdAt: -1 });
   

@@ -15,12 +15,12 @@ import {
   FaInfoCircle,
   FaCheck,
   FaUserPlus,
-  FaBell
+  FaBell,
+  FaUsers,
+  FaUserCheck
 } from 'react-icons/fa';
 import Navbar from '../components/Event component/Navbar';
 import Footer from "../components/Event component/Footer";
-import EventCards from '../components/Event component/EventCards';
-import EventModal from '../components/Event component/EventModal';
 
 const isTokenValid = (token) => {
   if (!token) return false;
@@ -51,6 +51,620 @@ const clearAuthData = () => {
   localStorage.removeItem("refreshToken");
   localStorage.removeItem("userId");
 };
+
+// Event Details Modal Component - EXACT COPY FROM DASHBOARD
+const EventModal = ({ event, onClose, onEnroll, enrolling, currentUserId }) => {
+  const navigate = useNavigate();
+  const [enrollmentCount, setEnrollmentCount] = useState(0);
+  const [loadingEnrollments, setLoadingEnrollments] = useState(false);
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  
+  // Update local enrollment state when event changes
+  useEffect(() => {
+    setIsEnrolled(event?.isEnrolled || false);
+  }, [event?.isEnrolled]);
+  
+  // Fetch enrollment count for this event
+  useEffect(() => {
+    const fetchEnrollmentCount = async () => {
+      if (!event?.id && !event?._id) return;
+      
+      try {
+        setLoadingEnrollments(true);
+        
+        const token = localStorage.getItem("accessToken");
+        const headers = {
+          'Content-Type': 'application/json',
+        };
+        
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const eventId = event._id || event.id;
+        const response = await fetch(`/api/enrollments/event/${eventId}`, {
+          method: 'GET',
+          headers
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const enrollments = data.data || data || [];
+          setEnrollmentCount(enrollments.length);
+        } else {
+          if (response.status === 401) {
+            console.log('Unauthorized - enrollment count may require authentication');
+          } else {
+            console.log('Failed to fetch enrollment count');
+          }
+          setEnrollmentCount(0);
+        }
+      } catch (error) {
+        console.error('Error fetching enrollment count:', error);
+        setEnrollmentCount(0);
+      } finally {
+        setLoadingEnrollments(false);
+      }
+    };
+    
+    fetchEnrollmentCount();
+  }, [event?.id, event?._id]);
+  
+  if (!event) return null;
+
+  const handleBuyTicket = () => {
+    // Store the selected event in localStorage for the buy ticket page
+    localStorage.setItem('selectedEvent', JSON.stringify(event));
+    navigate('/payment');
+  };
+
+  const handleEnroll = () => {
+    // Pass the current enrollment status to the parent component
+    const eventId = event._id || event.id;
+    onEnroll(eventId, isEnrolled);
+    
+    // Update local enrollment status and count immediately for better UX
+    setIsEnrolled(!isEnrolled);
+    
+    if (isEnrolled) {
+      setEnrollmentCount(prev => Math.max(0, prev - 1));
+    } else {
+      setEnrollmentCount(prev => prev + 1);
+    }
+  };
+  
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
+      {/* Enhanced blurred background with gradient */}
+      <div 
+        className="absolute inset-0 bg-gradient-to-br from-black/80 via-gray-900/90 to-black/80 backdrop-blur-xl"
+        onClick={onClose}
+      />
+      
+      {/* Modal container with enhanced styling */}
+      <div className="relative bg-gradient-to-br from-black/90 via-gray-900/95 to-black/90 backdrop-blur-2xl rounded-3xl border border-white/10 shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden animate-slideUp">
+        
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 z-[10000] p-2 bg-black/50 hover:bg-red-600/80 rounded-full transition-all duration-300 transform hover:scale-110 active:scale-95 backdrop-blur-sm border border-white/20"
+        >
+          <FaTimes className="text-white text-lg" />
+        </button>
+
+        {/* Scrollable content */}
+        <div className="overflow-y-auto max-h-[90vh] custom-scrollbar">
+          
+          {/* Image section with overlay */}
+          <div className="relative h-64 overflow-hidden">
+            <img
+              src={event.imageUrl}
+              alt={event.title}
+              className="w-full h-full object-cover"
+            />
+            
+            {/* Gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+            
+            {/* Price badge */}
+            <div className="absolute top-4 left-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold px-4 py-2 rounded-full shadow-lg backdrop-blur-sm border border-white/20">
+              <FaDollarSign className="inline mr-1" />
+              {event.price}
+            </div>
+            
+            {/* Enrollment status badge */}
+            {isEnrolled && (
+              <div className="absolute top-4 right-16 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold px-4 py-2 rounded-full shadow-lg animate-pulse backdrop-blur-sm border border-white/20">
+                <FaUserCheck className="inline mr-1" />
+                Enrolled
+              </div>
+            )}
+            
+            {/* Title overlay */}
+            <div className="absolute bottom-4 left-4 right-4">
+              <h2 className="text-2xl md:text-3xl font-bold text-white mb-2 drop-shadow-lg">
+                {event.title}
+              </h2>
+              <p className="text-gray-200 text-sm md:text-base drop-shadow-md line-clamp-2">
+                {event.description}
+              </p>
+            </div>
+          </div>
+
+          {/* Content section */}
+          <div className="p-6 space-y-6">
+            
+            {/* Event details grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              {/* Date & Time */}
+              <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 backdrop-blur-sm rounded-xl p-4 border border-purple-500/30">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 bg-purple-600/30 rounded-lg">
+                    <FaCalendarAlt className="text-purple-400" />
+                  </div>
+                  <h3 className="text-white font-semibold">Date & Time</h3>
+                </div>
+                <p className="text-gray-300 text-sm">
+                  {new Date(event.date).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </p>
+                <p className="text-gray-400 text-xs mt-1">
+                  <FaClock className="inline mr-1" />
+                  {new Date(event.date).toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
+              </div>
+
+              {/* Location */}
+              <div className="bg-gradient-to-r from-blue-600/20 to-indigo-600/20 backdrop-blur-sm rounded-xl p-4 border border-blue-500/30">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 bg-blue-600/30 rounded-lg">
+                    <FaMapMarkerAlt className="text-blue-400" />
+                  </div>
+                  <h3 className="text-white font-semibold">Location</h3>
+                </div>
+                <p className="text-gray-300 text-sm">{event.location}</p>
+                <p className="text-gray-400 text-xs mt-1">
+                  📍 {event.district}
+                </p>
+              </div>
+
+              {/* Event Type & Creator */}
+              <div className="bg-gradient-to-r from-green-600/20 to-emerald-600/20 backdrop-blur-sm rounded-xl p-4 border border-green-500/30">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 bg-green-600/30 rounded-lg">
+                    <FaTicketAlt className="text-green-400" />
+                  </div>
+                  <h3 className="text-white font-semibold">Event Details</h3>
+                </div>
+                <p className="text-gray-300 text-sm">{event.type}</p>
+                {event.createdByName && (
+                  <p className="text-gray-400 text-xs mt-1">
+                    👤 Created by: {event.createdByName}
+                  </p>
+                )}
+                {event.eventCode && (
+                  <p className="text-gray-400 text-xs mt-1">
+                    🏷️ Code: {event.eventCode}
+                  </p>
+                )}
+              </div>
+
+              {/* Enrollment Count */}
+              <div className="bg-gradient-to-r from-emerald-600/20 to-green-600/20 backdrop-blur-sm rounded-xl p-4 border border-emerald-500/30">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 bg-emerald-600/30 rounded-lg">
+                    <FaUsers className="text-emerald-400" />
+                  </div>
+                  <h3 className="text-white font-semibold">Enrollments</h3>
+                </div>
+                <div className="space-y-2">
+                  {loadingEnrollments ? (
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-400"></div>
+                      <span className="text-gray-300 text-sm">Loading...</span>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-300 text-sm">Total Enrolled:</span>
+                      <span className="text-emerald-400 text-lg font-bold">{enrollmentCount}</span>
+                    </div>
+                  )}
+                  
+                  {isEnrolled && (
+                    <div className="text-emerald-400 text-xs font-semibold bg-emerald-600/20 rounded px-2 py-1 text-center">
+                      ✓ YOU ARE ENROLLED
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Ticket Types & Availability */}
+            {event.tickets && event.tickets.length > 0 && (
+              <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-xl p-6 border border-gray-600/30">
+                <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-3">
+                  <div className="p-2 bg-purple-600/30 rounded-lg">
+                    <FaTicketAlt className="text-purple-400" />
+                  </div>
+                  Ticket Types & Availability
+                </h3>
+                
+                {/* Overall ticket stats */}
+                {event.totalSoldTickets > 0 && (
+                  <div className="mb-4 p-3 bg-orange-600/20 rounded-lg border border-orange-500/30">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-300">Total Sold:</span>
+                      <span className="text-orange-400 font-semibold">{event.totalSoldTickets} tickets</span>
+                    </div>
+                    {event.totalAvailableTickets > 0 && (
+                      <div className="flex justify-between items-center text-sm mt-1">
+                        <span className="text-gray-300">Remaining:</span>
+                        <span className="text-green-400 font-semibold">{event.totalAvailableTickets} tickets</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {event.tickets.map((ticket, index) => (
+                    <div key={index} className="bg-gradient-to-r from-gray-700/30 to-gray-800/30 rounded-lg p-4 border border-gray-600/20">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h4 className="text-white font-semibold text-lg">{ticket.name}</h4>
+                          <p className="text-gray-400 text-sm">Event ticket</p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-green-400 font-bold text-lg">${ticket.price}</div>
+                        </div>
+                      </div>
+                      
+                      {/* Availability Info */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-400">Available:</span>
+                          <span className="text-blue-400 font-medium">{ticket.availableQuantity}</span>
+                        </div>
+                        
+                        {ticket.soldQuantity > 0 && (
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-gray-400">Sold:</span>
+                            <span className="text-orange-400 font-medium">{ticket.soldQuantity}</span>
+                          </div>
+                        )}
+                        
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-400">Total:</span>
+                          <span className="text-gray-300 font-medium">{ticket.totalQuantity}</span>
+                        </div>
+                        
+                        {/* Progress bar for this ticket type */}
+                        {ticket.totalQuantity > 0 && (
+                          <div className="mt-2">
+                            <div className="w-full bg-gray-700/50 rounded-full h-1.5 overflow-hidden">
+                              <div 
+                                className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full transition-all duration-1000 ease-out"
+                                style={{ width: `${(ticket.soldQuantity / ticket.totalQuantity) * 100}%` }}
+                              />
+                            </div>
+                            <div className="text-right mt-1">
+                              <span className="text-xs text-gray-400">
+                                {((ticket.soldQuantity / ticket.totalQuantity) * 100).toFixed(0)}% sold
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Availability status */}
+                        {ticket.availableQuantity === 0 ? (
+                          <div className="text-red-400 text-xs font-semibold bg-red-600/20 rounded px-2 py-1 text-center">
+                            SOLD OUT
+                          </div>
+                        ) : ticket.availableQuantity < 10 ? (
+                          <div className="text-orange-400 text-xs font-semibold bg-orange-600/20 rounded px-2 py-1 text-center">
+                            LIMITED AVAILABILITY
+                          </div>
+                        ) : (
+                          <div className="text-green-400 text-xs font-semibold bg-green-600/20 rounded px-2 py-1 text-center">
+                            AVAILABLE
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div className="flex flex-col sm:flex-row gap-4 pt-4">
+              <button
+                onClick={handleEnroll}
+                disabled={enrolling}
+                className={`flex-1 font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 active:scale-95 flex items-center justify-center shadow-lg backdrop-blur-sm border ${
+                  isEnrolled 
+                    ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white border-red-500/30 shadow-red-500/25' 
+                    : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-blue-500/30 shadow-blue-500/25'
+                } ${enrolling ? 'opacity-70 cursor-not-allowed' : 'hover:shadow-xl'}`}
+              >
+                {enrolling ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                    {isEnrolled ? 'Unenrolling...' : 'Enrolling...'}
+                  </>
+                ) : (
+                  <>
+                    <FaUserCheck className="mr-3" />
+                    {isEnrolled ? 'Unenroll' : 'Enroll Now'}
+                  </>
+                )}
+              </button>
+              
+              <button
+                onClick={handleBuyTicket}
+                disabled={enrolling}
+                className={`flex-1 font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 active:scale-95 flex items-center justify-center shadow-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white backdrop-blur-sm border border-purple-500/30 shadow-purple-500/25 ${
+                  enrolling ? 'opacity-70 cursor-not-allowed' : 'hover:shadow-xl'
+                }`}
+              >
+                <FaTicketAlt className="mr-3" />
+                Buy Ticket
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <style jsx>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        
+        @keyframes slideUp {
+          from { 
+            opacity: 0;
+            transform: translateY(50px) scale(0.95);
+          }
+          to { 
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+        
+        .animate-slideUp {
+          animation: slideUp 0.4s ease-out;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 3px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(147, 51, 234, 0.6);
+          border-radius: 3px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(147, 51, 234, 0.8);
+        }
+        
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+      `}</style>
+    </div>
+  );
+};
+
+// Event Cards Component
+const EventCards = ({ events, onEventClick, currentUserId }) => (
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8 px-4">
+    {events.map((event, idx) => {
+      // Use the isEnrolled property from the event data
+      const isEnrolled = event.isEnrolled || false;
+      
+      // Format creation date
+      const creationDate = event.createdAt ? new Date(event.createdAt).toLocaleDateString() : 'N/A';
+      
+      // Get ticket information with prices and availability
+      const ticketInfo = event.tickets && event.tickets.length > 0 
+        ? event.tickets.map(ticket => {
+            const soldInfo = ticket.soldQuantity > 0 ? ` (${ticket.soldQuantity} sold)` : '';
+            const availableInfo = ticket.availableQuantity < ticket.totalQuantity ? ` - ${ticket.availableQuantity} left` : '';
+            return `${ticket.name}: $${ticket.price}${soldInfo}${availableInfo}`;
+          }).join(', ')
+        : 'No tickets available';
+      
+      return (
+        <div
+          key={idx}
+          className="group relative bg-gradient-to-br from-black/40 via-gray-900/30 to-black/50 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden cursor-pointer transform transition-all duration-500 hover:scale-105 hover:rotate-1 hover:shadow-2xl hover:shadow-gray-500/25"
+          onClick={() => onEventClick(event)}
+        >
+          {/* Gradient overlay for better visual depth */}
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-600/5 via-transparent to-gray-500/5 transition-opacity duration-500" />
+          
+          {/* Image container with overlay effects */}
+          <div className="relative overflow-hidden">
+            <img
+              src={event.imageUrl}
+              alt={event.title}
+              className="w-full h-48 object-cover transition-transform duration-700 group-hover:scale-110"
+            />
+            
+            {/* Image overlay gradient */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent transition-opacity duration-500" />
+            
+            {/* Price badge */}
+            <div className="absolute top-3 left-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-bold px-3 py-1 rounded-full shadow-lg transform transition-transform duration-300 group-hover:scale-110">
+            ${event.price}
+            </div>
+            
+            {/* Sold tickets badge */}
+            {event.totalSoldTickets > 0 && (
+              <div className="absolute top-3 left-20 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-semibold px-2 py-1 rounded-full shadow-lg transform transition-transform duration-300 group-hover:scale-110">
+                {event.totalSoldTickets} sold
+              </div>
+            )}
+            
+            {/* Sold out badge */}
+            {event.isSoldOut && (
+              <div className="absolute top-3 left-3 bg-gradient-to-r from-red-600 to-red-700 text-white text-sm font-bold px-3 py-1 rounded-full shadow-lg transform transition-transform duration-300 group-hover:scale-110 animate-pulse">
+                SOLD OUT
+              </div>
+            )}
+            
+            {/* Enrollment status badge */}
+            {isEnrolled && (
+              <div className="absolute top-3 right-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white text-sm font-semibold px-3 py-1 rounded-full shadow-lg transform transition-all duration-300 group-hover:scale-110 animate-pulse">
+                ✓ Enrolled
+              </div>
+            )}
+            
+            {/* Type badge */}
+            <div className="absolute bottom-3 right-3 bg-black/70 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-lg border border-white/20">
+              {event.type}
+            </div>
+          </div>
+          
+          {/* Content section */}
+          <div className="p-5 space-y-3">
+            {/* Title */}
+            <h2 className="text-lg font-bold text-white mb-2 line-clamp-2 transition-colors duration-300">
+              {event.title}
+            </h2>
+            
+            {/* Location with icon */}
+            <div className="flex items-center gap-2 text-gray-300">
+              <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
+              <span className="text-sm font-medium truncate">{event.location}</span>
+            </div>
+            
+            {/* District */}
+            <div className="flex items-center gap-2 text-gray-400">
+              <div className="w-2 h-2 bg-blue-400 rounded-full" />
+              <span className="text-sm">{event.district}</span>
+            </div>
+            
+            {/* Event Creation Date */}
+            <div className="flex items-center gap-2 text-gray-300">
+              <div className="w-2 h-2 bg-green-400 rounded-full" />
+              <span className="text-sm font-medium">Created: {creationDate}</span>
+            </div>
+            
+
+            
+            {/* Created By info */}
+            {event.createdBy && (
+              <div className="flex items-center gap-2 text-green-400">
+                <div className="w-2 h-2 bg-green-400 rounded-full" />
+                <span className="text-sm">Created by: {typeof event.createdBy === 'object' ? event.createdBy.name : event.createdBy}</span>
+              </div>
+            )}
+            
+            {/* Ticket Information with Prices and Availability */}
+            <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 bg-purple-400 rounded-full" />
+                <span className="text-sm text-gray-300 font-medium">Ticket Availability</span>
+              </div>
+              
+              {/* Overall ticket stats summary */}
+              {event.tickets && event.tickets.length > 0 ? (
+                <div className="mb-2 space-y-1">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-gray-400">Total Tickets:</span>
+                    <span className="text-white font-medium">{event.totalTickets || 0}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-gray-400">Sold:</span>
+                    <span className="text-orange-400 font-medium">{event.totalSoldTickets || 0}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-gray-400">Available:</span>
+                    <span className="text-green-400 font-medium">{event.totalAvailableTickets || 0}</span>
+                  </div>
+                  
+                  {/* Progress bar */}
+                  {event.totalTickets > 0 && (
+                    <div className="w-full bg-gray-700 rounded-full h-2 mt-2">
+                      <div 
+                        className="bg-gradient-to-r from-orange-500 to-red-500 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${((event.totalSoldTickets || 0) / event.totalTickets) * 100}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-400">No tickets available</div>
+              )}
+              
+              {/* Individual ticket types */}
+              <div className="space-y-1 mt-2 pt-2 border-t border-gray-700/50">
+                {event.tickets && event.tickets.length > 0 ? (
+                  event.tickets.map((ticket, index) => (
+                    <div key={index} className="text-xs text-white flex justify-between items-center">
+                      <div>
+                        <span className="font-medium">{ticket.name}</span>
+                        <span className="text-gray-400 ml-1">${ticket.price}</span>
+                      </div>
+                      <div className="text-right">
+                        {ticket.soldQuantity > 0 && (
+                          <span className="text-orange-400">{ticket.soldQuantity} sold</span>
+                        )}
+                        {ticket.availableQuantity >= 0 && (
+                          <span className="text-green-400 ml-1">• {ticket.availableQuantity} left</span>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-400">No ticket types defined</p>
+                )}
+              </div>
+            </div>
+            
+            {/* Action button */}
+            <div className="pt-2">
+              <button 
+                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-2 px-4 rounded-xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEventClick(event);
+                }}
+              >
+                {isEnrolled ? 'View Details' : 'View Tickets'}
+              </button>
+            </div>
+          </div>
+          
+        </div>
+      );
+    })}
+  </div>
+);
 
 // Event Cards Component for Enrolled Events - No Enrolled Events Message
 const NoEnrolledEventsMessage = () => {
@@ -114,7 +728,10 @@ const EnrollmentStats = ({ enrolledEventsCount, totalPrice }) => {
 const Myevents = () => {
   const [username, setUsername] = useState("");
   const [events, setEvents] = useState([]);
+  const [rawEvents, setRawEvents] = useState([]); // Raw events from API
+  const [userEnrollments, setUserEnrollments] = useState([]); // User enrollments state
   const [enrolledEventsData, setEnrolledEventsData] = useState([]); // Add state for enrolled events from API
+  const [transformedEnrolledEvents, setTransformedEnrolledEvents] = useState([]); // Transformed enrolled events
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -127,6 +744,102 @@ const Myevents = () => {
   const [notificationMessage, setNotificationMessage] = useState('');
   const [sendingNotification, setSendingNotification] = useState(false);
   const navigate = useNavigate();
+
+  // Transform event data to include enrollment status (same as Dashboard)
+  const transformEventData = (backendEvent) => {
+    // Check if current user is enrolled in this event
+    // The userEnrollments array contains objects with 'event' property (populated event object)
+    const isEnrolled = userEnrollments.some(enrollment => {
+      // Handle both structures: from API (enrollment.event._id) and from local state (enrollment.eventId)
+      const enrollmentEventId = enrollment.event?._id || enrollment.event?.id || enrollment.eventId;
+      return enrollmentEventId === backendEvent._id;
+    });
+    
+    return {
+      id: backendEvent._id,
+      title: backendEvent.title,
+      description: backendEvent.description,
+      eventCode: backendEvent.eventCode,
+      type: backendEvent.type,
+      date: backendEvent.date,
+      time: backendEvent.time || 'Time TBA', 
+      location: backendEvent.location || 'Location TBA', 
+      imageUrl: backendEvent.imageUrl || '/simplytix.svg', 
+      district: backendEvent.district || 'General',
+      createdBy: backendEvent.createdBy,
+      createdByName: typeof backendEvent.createdBy === 'object' && backendEvent.createdBy?.name 
+        ? backendEvent.createdBy.name 
+        : backendEvent.createdBy || 'Unknown',
+      maxAttendees: backendEvent.maxAttendees || 100,
+      attendees: backendEvent.attendees || 0,
+      tags: backendEvent.tags || [],
+      isEnrolled: isEnrolled,
+      // Handle new ticket structure with totalQuantity, availableQuantity, soldQuantity
+      tickets: backendEvent.tickets && backendEvent.tickets.length > 0 
+        ? backendEvent.tickets.map(ticket => ({
+            id: ticket._id || ticket.id,
+            name: ticket.name,
+            price: ticket.price,
+            totalQuantity: ticket.totalQuantity || ticket.quantity || 100,
+            availableQuantity: ticket.availableQuantity || ticket.quantity || 100,
+            soldQuantity: ticket.soldQuantity || 0,
+            // For backward compatibility
+            quantity: ticket.totalQuantity || ticket.quantity || 100,
+            isAvailable: (ticket.availableQuantity || ticket.quantity || 100) > 0,
+            percentageSold: ticket.totalQuantity ? ((ticket.soldQuantity || 0) / ticket.totalQuantity * 100).toFixed(1) : 0
+          }))
+        : [{
+            id: 'default',
+            name: 'General Admission', 
+            price: 0,
+            totalQuantity: 100,
+            availableQuantity: 100,
+            soldQuantity: 0,
+            quantity: 100,
+            isAvailable: true,
+            percentageSold: 0
+          }],
+      price: backendEvent.tickets && backendEvent.tickets.length > 0 ? backendEvent.tickets[0].price : 0,
+      // Update ticketTypes to match new structure
+      ticketTypes: backendEvent.tickets && backendEvent.tickets.length > 0 
+        ? backendEvent.tickets.map(ticket => ({
+            id: ticket._id || ticket.id,
+            name: ticket.name,
+            price: ticket.price,
+            totalQuantity: ticket.totalQuantity || ticket.quantity || 100,
+            availableQuantity: ticket.availableQuantity || ticket.quantity || 100,
+            soldQuantity: ticket.soldQuantity || 0,
+            quantity: ticket.totalQuantity || ticket.quantity || 100,
+            isAvailable: (ticket.availableQuantity || ticket.quantity || 100) > 0,
+            percentageSold: ticket.totalQuantity ? ((ticket.soldQuantity || 0) / ticket.totalQuantity * 100).toFixed(1) : 0
+          }))
+        : [{ 
+            id: 'default',
+            name: 'General Admission', 
+            price: 0, 
+            totalQuantity: 100,
+            availableQuantity: 100,
+            soldQuantity: 0,
+            quantity: 100,
+            isAvailable: true,
+            percentageSold: 0
+          }],
+      formattedDate: backendEvent.date ? new Date(backendEvent.date).toLocaleDateString() : '',
+      formattedTime: backendEvent.time || 'Time TBA',
+      category: backendEvent.category || backendEvent.type,
+      isFree: backendEvent.tickets ? backendEvent.tickets.every(ticket => ticket.price === 0) : true,
+      // Add additional fields from backend
+      totalSoldTickets: backendEvent.totalSoldTickets || 0,
+      totalAvailableTickets: backendEvent.totalAvailableTickets || 0,
+      totalTickets: backendEvent.totalTickets || (backendEvent.totalSoldTickets || 0) + (backendEvent.totalAvailableTickets || 0) || 
+        (backendEvent.tickets && backendEvent.tickets.length > 0 
+          ? backendEvent.tickets.reduce((sum, ticket) => sum + (ticket.totalQuantity || ticket.quantity || 0), 0)
+          : 100),
+      isSoldOut: backendEvent.totalAvailableTickets === 0,
+      createdAt: backendEvent.createdAt,
+      updatedAt: backendEvent.updatedAt
+    };
+  };
 
   // Fetch events from backend API
   const fetchEvents = async () => {
@@ -144,7 +857,10 @@ const Myevents = () => {
         return;
       }
       
-      const response = await fetch('http://localhost:3000/api/events', {
+      // Fetch user enrollments first
+      await fetchUserEnrollments();
+      
+      const response = await fetch('/api/events', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -179,56 +895,40 @@ const Myevents = () => {
         eventsArray = [];
       }
       
-      // Transform events to ensure consistent ID field and log creator info
-      const transformedEvents = eventsArray.map(event => {
-        console.log('Processing event:', {
-          title: event.title,
-          createdBy: event.createdBy,
-          creator: event.creator,
-          _id: event._id
-        });
-        
-        return {
-          ...event,
-          id: event._id || event.id // Ensure both id and _id are available
-        };
-      });
-      
-      setEvents(transformedEvents);
-      console.log('Events set:', transformedEvents.length, 'events with creators:', 
-        transformedEvents.map(e => ({ title: e.title, createdBy: e.createdBy, creator: e.creator })));
+      // Store raw events, transformation will happen in useEffect
+      setRawEvents(eventsArray);
+      console.log('Raw events set:', eventsArray.length, 'events');
       
       setError(null);
     } catch (error) {
       console.error("Backend API failed:", error);
-      setEvents([]);
+      setRawEvents([]);
       setError("Failed to load events. Please check your connection and ensure the backend server is running.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch enrollments for the current user
+  // Fetch user enrollments
   const fetchUserEnrollments = async () => {
     try {
       console.log('Fetching user enrollments...');
-      setLoading(true);
       
-      const accessToken = localStorage.getItem("accessToken");
+      const token = localStorage.getItem("accessToken");
+      const userId = localStorage.getItem("userId");
       
-      // Check if user is authenticated and token is valid
-      if (!accessToken || !isTokenValid(accessToken)) {
-        console.error("No access token found or token is invalid. User needs to log in.");
-        clearAuthData();
-        navigate("/login", { state: { message: "Your session has expired. Please log in again." } });
-        return;
+      if (!token || !userId || !isTokenValid(token)) {
+        console.log("No access token found or token is invalid.");
+        setUserEnrollments([]);
+        setEnrolledEventsData([]);
+        return [];
       }
       
-      const response = await fetch('http://localhost:3000/api/enrollments/my', {
+      const response = await fetch('/api/enrollments/my', {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         }
       });
       
@@ -236,11 +936,14 @@ const Myevents = () => {
         console.error("Access token expired or invalid. Redirecting to login...");
         clearAuthData();
         navigate("/login", { state: { message: "Your session has expired. Please log in again." } });
-        return;
+        return [];
       }
       
       if (!response.ok) {
-        throw new Error(`Backend API error! status: ${response.status}`);
+        console.log('Failed to fetch user enrollments');
+        setUserEnrollments([]);
+        setEnrolledEventsData([]);
+        return [];
       }
       
       const data = await response.json();
@@ -248,31 +951,65 @@ const Myevents = () => {
       
       // Process the enrolled events
       if (data && data.success && Array.isArray(data.data)) {
-        // Extract event details from enrollment data
-        const enrolledEvents = data.data.map(enrollment => ({
-          ...enrollment.event,
-          enrollmentId: enrollment._id,
-          enrolledAt: enrollment.enrolledAt
-        }));
+        // Set userEnrollments for isEnrolled checking
+        setUserEnrollments(data.data.map(enrollment => ({
+          event: enrollment.event, // Keep the populated event object
+          eventId: enrollment.event._id || enrollment.event.id,
+          userId: enrollment.userId || userId
+        })));
+        
+        // Extract event details from enrollment data for enrolled events display
+        const enrolledEvents = data.data.map(enrollment => {
+          const event = enrollment.event;
+          console.log('Processing enrolled event:', event.title, 'CreatedBy:', event.createdBy);
+          return {
+            ...event,
+            enrollmentId: enrollment._id,
+            enrolledAt: enrollment.enrolledAt,
+            // Ensure _id field is present for transformation
+            _id: event._id || event.id
+          };
+        });
         
         console.log('Enrolled events from API:', enrolledEvents.length);
-        
-        // Set enrolled events to state
         setEnrolledEventsData(enrolledEvents);
         return enrolledEvents;
       } else {
+        setUserEnrollments([]);
         setEnrolledEventsData([]);
         return [];
       }
     } catch (error) {
       console.error('Error fetching user enrollments:', error);
-      setError("Failed to load enrolled events. Please check your connection and ensure the backend server is running.");
+      setUserEnrollments([]);
       setEnrolledEventsData([]);
       return [];
-    } finally {
-      setLoading(false);
     }
   };
+
+  // Transform events when userEnrollments or rawEvents change (same as Dashboard)
+  useEffect(() => {
+    if (rawEvents.length > 0) {
+      const transformedEvents = rawEvents.map(transformEventData);
+      console.log('Transformed events with enrollment status:', transformedEvents);
+      setEvents(transformedEvents);
+    }
+  }, [userEnrollments, rawEvents]);
+
+  // Transform enrolled events data for proper display
+  useEffect(() => {
+    if (enrolledEventsData.length > 0) {
+      const transformedEnrolled = enrolledEventsData.map(event => {
+        const transformed = transformEventData(event);
+        // Ensure enrolled events are marked as enrolled
+        return { ...transformed, isEnrolled: true };
+      });
+      console.log('Transformed enrolled events:', transformedEnrolled);
+      setTransformedEnrolledEvents(transformedEnrolled);
+    } else {
+      setTransformedEnrolledEvents([]);
+    }
+  }, [enrolledEventsData, userEnrollments]);
 
   // Fetch events and enrollments from backend API
   useEffect(() => {
@@ -323,32 +1060,31 @@ const Myevents = () => {
 
   // Handle enrollment/unenrollment - same as Dashboard
   const handleEnroll = async (eventId, isCurrentlyEnrolled = false) => {
+    // Get current enrollment status from the event data (move outside try block)
+    const event = events.find(e => e.id === eventId);
+    const actuallyEnrolled = event ? event.isEnrolled : false;
+    
     try {
       setEnrolling(true);
       
       const token = localStorage.getItem("accessToken");
       const userId = localStorage.getItem("userId");
       
-      if (!token || !userId || !isTokenValid(token)) {
-        alert("Your session has expired. Please log in again.");
-        clearAuthData();
-        navigate("/login", { state: { message: "Your session has expired. Please log in again." } });
+      if (!token || !userId) {
+        alert("Please log in to enroll in events");
+        navigate("/login");
         return;
       }
       
-      console.log(`${isCurrentlyEnrolled ? 'Unenrolling from' : 'Enrolling in'} event ${eventId}...`);
-      console.log('Current user ID:', userId);
-      console.log('Is currently enrolled:', isCurrentlyEnrolled);
+      console.log(`${actuallyEnrolled ? 'Unenrolling from' : 'Enrolling in'} event ${eventId}...`);
+      console.log('Current event enrollment status:', actuallyEnrolled);
+      console.log('User enrollments:', userEnrollments);
       
-      // Use different endpoints for enroll/unenroll
-      const endpoint = isCurrentlyEnrolled 
-        ? `http://localhost:3000/api/events/${eventId}/unregister`
-        : `http://localhost:3000/api/events/${eventId}/register`;
+      // Use enrollment API endpoints
+      const endpoint = `/api/enrollments/event/${eventId}`;
+      const method = actuallyEnrolled ? 'DELETE' : 'POST';
       
-      const method = isCurrentlyEnrolled ? 'DELETE' : 'POST';
-      
-      console.log('API endpoint:', endpoint);
-      console.log('HTTP method:', method);
+      console.log('API call:', method, endpoint);
       
       const response = await fetch(endpoint, {
         method: method,
@@ -360,88 +1096,62 @@ const Myevents = () => {
       
       if (!response.ok) {
         if (response.status === 401) {
-          alert("Your session has expired. Please log in again.");
-          clearAuthData();
-          navigate("/login", { state: { message: "Your session has expired. Please log in again." } });
+          alert("Session expired. Please log in again.");
+          localStorage.clear();
+          navigate("/login");
           return;
-        } else if (response.status === 403) {
-          alert("You don't have permission to perform this action.");
-          return;
-        } else if (response.status === 404) {
-          alert("Event not found.");
-          return;
-        } else if (response.status === 400) {
-          const errorData = await response.json().catch(() => ({}));
-          if (errorData.message && errorData.message.includes('already registered')) {
-            alert("You are already enrolled in this event!");
-            return;
-          } else if (errorData.message && errorData.message.includes('not registered')) {
-            alert("You are not enrolled in this event!");
-            return;
-          }
         }
         
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `${isCurrentlyEnrolled ? 'Unenrollment' : 'Enrollment'} failed`);
+        console.error('API Error:', errorData);
+        throw new Error(errorData.message || `${actuallyEnrolled ? 'Unenrollment' : 'Enrollment'} failed`);
       }
       
       const data = await response.json();
-      console.log(`${isCurrentlyEnrolled ? 'Unenrollment' : 'Enrollment'} response:`, data);
+      console.log(`${actuallyEnrolled ? 'Unenrollment' : 'Enrollment'} response:`, data);
       
-      // Update local events state to reflect the change
-      setEvents(events.map(event => {
-        if (event.id === eventId || event._id === eventId) {
-          let updatedAttendees;
-          if (isCurrentlyEnrolled) {
-            // For unenrollment, filter out the current user
-            updatedAttendees = event.attendees.filter(attendeeId => {
-              const attendeeIdStr = typeof attendeeId === 'string' ? attendeeId : attendeeId._id || attendeeId.toString();
-              return attendeeIdStr !== userId;
-            });
-          } else {
-            // For enrollment, add the current user
-            updatedAttendees = [...event.attendees, userId];
-          }
-          
-          return { ...event, attendees: updatedAttendees };
-        }
-        return event;
-      }));
-      
+      // Update userEnrollments state based on the action performed
+      if (actuallyEnrolled) {
+        // Remove enrollment from userEnrollments
+        console.log('Removing enrollment from userEnrollments');
+        setUserEnrollments(prev => {
+          const updated = prev.filter(enrollment => {
+            const enrollmentEventId = enrollment.event?._id || enrollment.event?.id || enrollment.eventId;
+            return enrollmentEventId !== eventId;
+          });
+          console.log('Updated userEnrollments after removal:', updated);
+          return updated;
+        });
+      } else {
+        // Add enrollment to userEnrollments (use structure compatible with API response)
+        console.log('Adding enrollment to userEnrollments');
+        setUserEnrollments(prev => {
+          const updated = [...prev, { 
+            eventId: eventId,
+            userId: userId,
+            event: { _id: eventId, id: eventId } // Basic event structure for compatibility
+          }];
+          console.log('Updated userEnrollments after addition:', updated);
+          return updated;
+        });
+      }
+
       // Update selected event if it's currently open
       if (selectedEvent && (selectedEvent.id === eventId || selectedEvent._id === eventId)) {
-        let updatedAttendees;
-        if (isCurrentlyEnrolled) {
-          // For unenrollment, filter out the current user
-          updatedAttendees = selectedEvent.attendees.filter(attendeeId => {
-            const attendeeIdStr = typeof attendeeId === 'string' ? attendeeId : attendeeId._id || attendeeId.toString();
-            return attendeeIdStr !== userId;
-          });
-        } else {
-          // For enrollment, add the current user
-          updatedAttendees = [...selectedEvent.attendees, userId];
-        }
-        
-        setSelectedEvent({ ...selectedEvent, attendees: updatedAttendees });
+        setSelectedEvent({ ...selectedEvent, isEnrolled: !actuallyEnrolled });
       }
       
-      const successMessage = isCurrentlyEnrolled 
+      // Refresh enrolled events data to reflect changes
+      await fetchUserEnrollments();
+      
+      const successMessage = actuallyEnrolled 
         ? '✅ Successfully unenrolled from the event!' 
         : '🎉 Successfully enrolled in the event!';
       alert(successMessage);
       
     } catch (error) {
-      console.error(`${isCurrentlyEnrolled ? 'Unenrollment' : 'Enrollment'} failed:`, error);
-      
-      // Provide user-friendly error messages
-      let errorMessage;
-      if (error.message.includes('network') || error.message.includes('fetch')) {
-        errorMessage = "Network error. Please check your connection and try again.";
-      } else {
-        errorMessage = error.message || `Failed to ${isCurrentlyEnrolled ? 'unenroll from' : 'enroll in'} event`;
-      }
-      
-      alert(`❌ ${errorMessage}`);
+      console.error(`${actuallyEnrolled ? 'Unenrollment' : 'Enrollment'} failed:`, error);
+      alert(`❌ ${error.message}`);
     } finally {
       setEnrolling(false);
     }
@@ -1025,130 +1735,6 @@ const Myevents = () => {
     );
   };
 
-  // Event Card Component
-const EventCard = ({ event, isEnrolled, onEnroll, onViewDetails, onEdit, onDelete }) => {
-  const [isHovered, setIsHovered] = useState(false);
-  const userId = localStorage.getItem("userId");
-  // Check both 'creator' and 'createdBy' fields (backend uses 'createdBy')
-  const isCreator = event.creator?._id === userId || event.creator === userId || 
-                   event.createdBy?._id === userId || event.createdBy === userId;
-  
-  // Calculate remaining tickets
-  const totalTickets = event.tickets?.reduce((sum, ticket) => sum + ticket.quantity, 0) || 0;
-  const remainingTickets = totalTickets - (event.attendees?.length || 0);
-  const ticketPrice = event.tickets?.[0]?.price || 0;
-
-  return (
-    <div
-      className="relative bg-black/40 backdrop-blur-sm rounded-2xl shadow-xl border border-white/10 overflow-hidden transition-all duration-300 hover:shadow-2xl hover:scale-[1.02] hover:border-white/20"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      {/* Event Image */}
-      <div className="relative h-48 overflow-hidden">
-        <img
-          src={event.imageUrl || 'https://via.placeholder.com/400x200'}
-          alt={event.title}
-          className="w-full h-full object-cover"
-        />
-        {/* Overlay with event type badge */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent">
-          <span className="absolute bottom-4 left-4 px-3 py-1 bg-blue-600 text-white text-sm rounded-full capitalize">
-            {event.type}
-          </span>
-          {isCreator && (
-            <span className="absolute bottom-4 right-4 px-3 py-1 bg-green-600 text-white text-sm rounded-full">
-              Created by You
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Event Content */}
-      <div className="p-6 space-y-4">
-        <h3 className="text-xl font-bold text-white line-clamp-2">{event.title}</h3>
-        
-        <div className="space-y-2">
-          {/* Date and Time */}
-          <div className="flex items-center text-gray-300">
-            <FaCalendarAlt className="mr-2" />
-            <span>
-              {new Date(event.date).toLocaleDateString()} at {event.time}
-            </span>
-          </div>
-          
-          {/* Location */}
-          <div className="flex items-center text-gray-300">
-            <FaMapMarkerAlt className="mr-2" />
-            <span>{event.location}</span>
-          </div>
-
-          {/* Price and Tickets */}
-          <div className="flex justify-between items-center">
-            <div className="flex items-center text-gray-300">
-              <FaTicketAlt className="mr-2" />
-              <span>{remainingTickets} tickets left</span>
-            </div>
-            <div className="text-white font-bold">
-              {ticketPrice > 0 ? `$${ticketPrice.toFixed(2)}` : 'Free'}
-            </div>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex justify-between items-center pt-4 border-t border-white/10">
-          <button
-            onClick={() => onViewDetails(event)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
-          >
-            <FaEye />
-            View Details
-          </button>
-
-          {isCreator ? (
-            <div className="flex gap-2">
-              <button
-                onClick={() => onEdit(event)}
-                className="p-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors"
-              >
-                <FaEdit />
-              </button>
-              <button
-                onClick={() => onDelete(event)}
-                className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-              >
-                <FaTrash />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => onEnroll(event._id || event.id, isEnrolled)}
-              disabled={isEnrolled}
-              className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-                isEnrolled
-                  ? 'bg-green-600 text-white cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white'
-              }`}
-            >
-              {isEnrolled ? (
-                <>
-                  <FaCheck />
-                  Enrolled
-                </>
-              ) : (
-                <>
-                  <FaUserPlus />
-                  Enroll Now
-                </>
-              )}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
   // Get current user ID
   const currentUserId = localStorage.getItem("userId");
   
@@ -1177,7 +1763,7 @@ const EventCard = ({ event, isEnrolled, onEnroll, onViewDetails, onEdit, onDelet
   console.log(`Found ${createdEvents.length} created events by user ${currentUserId} out of ${safeEvents.length} total events`);
   
   // Calculate total price of enrolled events
-  const totalPrice = enrolledEventsData.reduce((sum, event) => sum + (parseFloat(event.price) || 0), 0);
+  const totalPrice = transformedEnrolledEvents.reduce((sum, event) => sum + (parseFloat(event.price) || 0), 0);
 
   // Enhanced delete function that checks for attendees
   const handleDeleteEvent = async (event) => {
@@ -1522,7 +2108,7 @@ const EventCard = ({ event, isEnrolled, onEnroll, onViewDetails, onEdit, onDelet
           <div className="container mx-auto px-4 py-8">
             {/* Stats Section */}
             <EnrollmentStats
-              enrolledEventsCount={enrolledEventsData.length}
+              enrolledEventsCount={transformedEnrolledEvents.length}
               totalPrice={totalPrice}
             />
 
@@ -1544,19 +2130,11 @@ const EventCard = ({ event, isEnrolled, onEnroll, onViewDetails, onEdit, onDelet
                   <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
                 </div>
               ) : createdEvents.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {createdEvents.map(event => (
-                    <EventCard
-                      key={event._id || event.id}
-                      event={event}
-                      isEnrolled={false}
-                      onEnroll={handleEnroll}
-                      onEdit={handleEditEvent}
-                      onDelete={handleDeleteEvent}
-                      onViewDetails={setSelectedEvent}
-                    />
-                  ))}
-                </div>
+                <EventCards 
+                  events={createdEvents} 
+                  onEventClick={setSelectedEvent}
+                  currentUserId={currentUserId}
+                />
               ) : (
                 <div className="text-center py-12 bg-black/40 backdrop-blur-sm rounded-2xl border border-white/10">
                   <FaCalendarPlus className="text-6xl text-gray-400 mx-auto mb-4" />
@@ -1581,18 +2159,12 @@ const EventCard = ({ event, isEnrolled, onEnroll, onViewDetails, onEdit, onDelet
                 <div className="flex justify-center items-center py-12">
                   <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
                 </div>
-              ) : enrolledEventsData.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {enrolledEventsData.map(event => (
-                    <EventCard
-                      key={event._id}
-                      event={event}
-                      isEnrolled={true}
-                      onEnroll={handleEnroll}
-                      onViewDetails={setSelectedEvent}
-                    />
-                  ))}
-                </div>
+              ) : transformedEnrolledEvents.length > 0 ? (
+                <EventCards 
+                  events={transformedEnrolledEvents} 
+                  onEventClick={setSelectedEvent}
+                  currentUserId={currentUserId}
+                />
               ) : (
                 <NoEnrolledEventsMessage />
               )}
@@ -1715,13 +2287,15 @@ const EventCard = ({ event, isEnrolled, onEnroll, onViewDetails, onEdit, onDelet
         )}
 
         {/* Event Details Modal */}
-        <EventModal 
-          event={selectedEvent} 
-          onClose={() => setSelectedEvent(null)}
-          onEnroll={handleEnroll}
-          enrolling={enrolling}
-          currentUserId={currentUserId}
-        />
+        {selectedEvent && (
+          <EventModal 
+            event={selectedEvent} 
+            onClose={() => setSelectedEvent(null)}
+            onEnroll={handleEnroll}
+            enrolling={enrolling}
+            currentUserId={currentUserId}
+          />
+        )}
         
         {/* Create Event Form Modal - Placed at the end to avoid z-index issues */}
         <CreateEventForm 

@@ -27,7 +27,12 @@ const Dashboard = () => {
 
   const transformEventData = (backendEvent) => {
     // Check if current user is enrolled in this event
-    const isEnrolled = userEnrollments.some(enrollment => enrollment.eventId === backendEvent._id);
+    // The userEnrollments array contains objects with 'event' property (populated event object)
+    const isEnrolled = userEnrollments.some(enrollment => {
+      // Handle both structures: from API (enrollment.event._id) and from local state (enrollment.eventId)
+      const enrollmentEventId = enrollment.event?._id || enrollment.event?.id || enrollment.eventId;
+      return enrollmentEventId === backendEvent._id;
+    });
     
     return {
       id: backendEvent._id,
@@ -273,6 +278,10 @@ const Dashboard = () => {
   };
 
   const handleEnroll = async (eventId, isCurrentlyEnrolled = false) => {
+    // Get current enrollment status from the event data (move outside try block)
+    const event = events.find(e => e.id === eventId);
+    const actuallyEnrolled = event ? event.isEnrolled : false;
+    
     try {
       setEnrolling(true);
       
@@ -285,15 +294,15 @@ const Dashboard = () => {
         return;
       }
       
-      // Get current enrollment status from the event data
-      const event = events.find(e => e.id === eventId);
-      const actuallyEnrolled = event ? event.isEnrolled : false;
-      
       console.log(`${actuallyEnrolled ? 'Unenrolling from' : 'Enrolling in'} event ${eventId}...`);
+      console.log('Current event enrollment status:', actuallyEnrolled);
+      console.log('User enrollments:', userEnrollments);
       
-      // Use new enrollment API endpoints
+      // Use enrollment API endpoints
       const endpoint = `/api/enrollments/event/${eventId}`;
       const method = actuallyEnrolled ? 'DELETE' : 'POST';
+      
+      console.log('API call:', method, endpoint);
       
       const response = await fetch(endpoint, {
         method: method,
@@ -312,19 +321,37 @@ const Dashboard = () => {
         }
         
         const errorData = await response.json().catch(() => ({}));
+        console.error('API Error:', errorData);
         throw new Error(errorData.message || `${actuallyEnrolled ? 'Unenrollment' : 'Enrollment'} failed`);
       }
       
       const data = await response.json();
       console.log(`${actuallyEnrolled ? 'Unenrollment' : 'Enrollment'} response:`, data);
       
-      // Update userEnrollments state
+      // Update userEnrollments state based on the action performed
       if (actuallyEnrolled) {
         // Remove enrollment from userEnrollments
-        setUserEnrollments(prev => prev.filter(enrollment => enrollment.eventId !== eventId));
+        console.log('Removing enrollment from userEnrollments');
+        setUserEnrollments(prev => {
+          const updated = prev.filter(enrollment => {
+            const enrollmentEventId = enrollment.event?._id || enrollment.event?.id || enrollment.eventId;
+            return enrollmentEventId !== eventId;
+          });
+          console.log('Updated userEnrollments after removal:', updated);
+          return updated;
+        });
       } else {
-        // Add enrollment to userEnrollments
-        setUserEnrollments(prev => [...prev, { eventId, userId }]);
+        // Add enrollment to userEnrollments (use structure compatible with API response)
+        console.log('Adding enrollment to userEnrollments');
+        setUserEnrollments(prev => {
+          const updated = [...prev, { 
+            eventId: eventId,
+            userId: userId,
+            event: { _id: eventId, id: eventId } // Basic event structure for compatibility
+          }];
+          console.log('Updated userEnrollments after addition:', updated);
+          return updated;
+        });
       }
       
       const successMessage = actuallyEnrolled 
@@ -333,7 +360,7 @@ const Dashboard = () => {
       alert(successMessage);
       
     } catch (error) {
-      console.error(`${isCurrentlyEnrolled ? 'Unenrollment' : 'Enrollment'} failed:`, error);
+      console.error(`${actuallyEnrolled ? 'Unenrollment' : 'Enrollment'} failed:`, error);
       alert(`❌ ${error.message}`);
     } finally {
       setEnrolling(false);
