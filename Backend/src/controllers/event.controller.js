@@ -7,6 +7,16 @@ exports.createEvent = async (req, res, next) => {
       createdBy: req.user.id
     };
 
+    // Ensure tickets have proper quantity structure
+    if (eventData.tickets && eventData.tickets.length > 0) {
+      eventData.tickets = eventData.tickets.map(ticket => ({
+        ...ticket,
+        totalQuantity: ticket.totalQuantity || ticket.quantity || 1,
+        availableQuantity: ticket.availableQuantity || ticket.quantity || 1,
+        soldQuantity: ticket.soldQuantity || 0
+      }));
+    }
+
     const event = await eventService.createEvent(eventData);
 
     res.status(201).json({
@@ -86,6 +96,21 @@ exports.getEventsByUser = async (req, res, next) => {
     }
 
     res.status(200).json({ message: 'Events retrieved successfully', events });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get ticket availability for an event
+exports.getTicketAvailability = async (req, res, next) => {
+  try {
+    const availability = await eventService.getTicketAvailability(req.params.id);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Ticket availability retrieved successfully',
+      data: availability
+    });
   } catch (error) {
     next(error);
   }

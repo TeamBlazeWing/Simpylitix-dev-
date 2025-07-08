@@ -18,7 +18,11 @@ exports.eventSchema = Joi.object({
   tickets: Joi.array().items(
     Joi.object({
       name: Joi.string().required(),
-      price: Joi.number().min(0).required()
+      price: Joi.number().min(0).required(),
+      quantity: Joi.number().min(1).optional(), // For backward compatibility
+      totalQuantity: Joi.number().min(1).optional(),
+      availableQuantity: Joi.number().min(0).optional(),
+      soldQuantity: Joi.number().min(0).optional()
     })
   ).optional(),
 

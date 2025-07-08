@@ -181,27 +181,95 @@ const EventModal = ({ event, onClose, onEnroll, enrolling, currentUserId }) => {
               </div>
             </div>
 
-            {/* Ticket Types & Prices */}
+            {/* Ticket Types & Availability */}
             {event.tickets && event.tickets.length > 0 && (
               <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-xl p-6 border border-gray-600/30">
                 <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-3">
                   <div className="p-2 bg-purple-600/30 rounded-lg">
                     <FaTicketAlt className="text-purple-400" />
                   </div>
-                  Ticket Types & Prices
+                  Ticket Types & Availability
                 </h3>
+                
+                {/* Overall ticket stats */}
+                {event.totalSoldTickets > 0 && (
+                  <div className="mb-4 p-3 bg-orange-600/20 rounded-lg border border-orange-500/30">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-300">Total Sold:</span>
+                      <span className="text-orange-400 font-semibold">{event.totalSoldTickets} tickets</span>
+                    </div>
+                    {event.totalAvailableTickets > 0 && (
+                      <div className="flex justify-between items-center text-sm mt-1">
+                        <span className="text-gray-300">Remaining:</span>
+                        <span className="text-green-400 font-semibold">{event.totalAvailableTickets} tickets</span>
+                      </div>
+                    )}
+                  </div>
+                )}
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {event.tickets.map((ticket, index) => (
                     <div key={index} className="bg-gradient-to-r from-gray-700/30 to-gray-800/30 rounded-lg p-4 border border-gray-600/20">
-                      <div className="flex justify-between items-center">
+                      <div className="flex justify-between items-start mb-3">
                         <div>
                           <h4 className="text-white font-semibold text-lg">{ticket.name}</h4>
-                          <p className="text-gray-400 text-sm">Standard event ticket</p>
+                          <p className="text-gray-400 text-sm">Event ticket</p>
                         </div>
                         <div className="text-right">
                           <div className="text-green-400 font-bold text-lg">${ticket.price}</div>
                         </div>
+                      </div>
+                      
+                      {/* Availability Info */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-400">Available:</span>
+                          <span className="text-blue-400 font-medium">{ticket.availableQuantity}</span>
+                        </div>
+                        
+                        {ticket.soldQuantity > 0 && (
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-gray-400">Sold:</span>
+                            <span className="text-orange-400 font-medium">{ticket.soldQuantity}</span>
+                          </div>
+                        )}
+                        
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-400">Total:</span>
+                          <span className="text-gray-300 font-medium">{ticket.totalQuantity}</span>
+                        </div>
+                        
+                        {/* Progress bar for this ticket type */}
+                        {ticket.totalQuantity > 0 && (
+                          <div className="mt-2">
+                            <div className="w-full bg-gray-700/50 rounded-full h-1.5 overflow-hidden">
+                              <div 
+                                className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full transition-all duration-1000 ease-out"
+                                style={{ width: `${(ticket.soldQuantity / ticket.totalQuantity) * 100}%` }}
+                              />
+                            </div>
+                            <div className="text-right mt-1">
+                              <span className="text-xs text-gray-400">
+                                {((ticket.soldQuantity / ticket.totalQuantity) * 100).toFixed(0)}% sold
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Availability status */}
+                        {ticket.availableQuantity === 0 ? (
+                          <div className="text-red-400 text-xs font-semibold bg-red-600/20 rounded px-2 py-1 text-center">
+                            SOLD OUT
+                          </div>
+                        ) : ticket.availableQuantity < 10 ? (
+                          <div className="text-orange-400 text-xs font-semibold bg-orange-600/20 rounded px-2 py-1 text-center">
+                            LIMITED AVAILABILITY
+                          </div>
+                        ) : (
+                          <div className="text-green-400 text-xs font-semibold bg-green-600/20 rounded px-2 py-1 text-center">
+                            AVAILABLE
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

@@ -69,3 +69,74 @@ exports.updateEvent = async (id, updateData, userId) => {
   
   return await event.populate('createdBy', 'name email');
 };
+
+exports.updateTicketQuantities = async (eventId, ticketPurchases) => {
+  const event = await Event.findById(eventId);
+  
+  if (!event) {
+    throw new Error('Event not found');
+  }
+
+  // Update ticket quantities
+  for (const purchase of ticketPurchases) {
+    const ticket = event.tickets.find(t => t.name === purchase.ticketName);
+    if (!ticket) {
+      throw new Error(`Ticket type "${purchase.ticketName}" not found`);
+    }
+
+    if (ticket.availableQuantity < purchase.quantity) {
+      throw new Error(`Insufficient tickets available for "${purchase.ticketName}"`);
+    }
+
+    ticket.availableQuantity -= purchase.quantity;
+    ticket.soldQuantity += purchase.quantity;
+  }
+
+  await event.save();
+  return event;
+};
+
+exports.validateTicketAvailability = async (eventId, ticketPurchases) => {
+  const event = await Event.findById(eventId);
+  
+  if (!event) {
+    throw new Error('Event not found');
+  }
+
+  for (const purchase of ticketPurchases) {
+    const ticket = event.tickets.find(t => t.name === purchase.ticketName);
+    if (!ticket) {
+      throw new Error(`Ticket type "${purchase.ticketName}" not found`);
+    }
+
+    if (ticket.availableQuantity < purchase.quantity) {
+      throw new Error(`Only ${ticket.availableQuantity} tickets available for "${purchase.ticketName}"`);
+    }
+  }
+
+  return true;
+};
+
+exports.getTicketAvailability = async (eventId) => {
+  const event = await Event.findById(eventId);
+  
+  if (!event) {
+    throw new Error('Event not found');
+  }
+
+  return {
+    eventId: event._id,
+    eventTitle: event.title,
+    tickets: event.tickets.map(ticket => ({
+      name: ticket.name,
+      price: ticket.price,
+      totalQuantity: ticket.totalQuantity,
+      availableQuantity: ticket.availableQuantity,
+      soldQuantity: ticket.soldQuantity,
+      percentageSold: ((ticket.soldQuantity / ticket.totalQuantity) * 100).toFixed(1)
+    })),
+    totalSoldTickets: event.totalSoldTickets,
+    totalAvailableTickets: event.totalAvailableTickets,
+    isSoldOut: event.isSoldOut()
+  };
+};

@@ -1,5 +1,27 @@
 import { useEffect, useState} from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } f      ticketTypes: backendEvent.tickets && backendEvent.tickets.length > 0 
+        ? backendEvent.tickets.map(ticket => ({
+            id: ticket._id || ticket.id,
+            name: ticket.name,
+            price: ticket.price,
+            totalQuantity: ticket.totalQuantity || ticket.quantity || 100,
+            availableQuantity: ticket.availableQuantity || ticket.quantity || 100,
+            soldQuantity: ticket.soldQuantity || 0,
+            quantity: ticket.totalQuantity || ticket.quantity || 100,
+            isAvailable: (ticket.availableQuantity || ticket.quantity || 100) > 0,
+            percentageSold: ticket.totalQuantity ? ((ticket.soldQuantity || 0) / ticket.totalQuantity * 100).toFixed(1) : 0
+          }))
+        : [{ 
+            id: 'default',
+            name: 'General Admission', 
+            price: 0, 
+            totalQuantity: 100,
+            availableQuantity: 100,
+            soldQuantity: 0,
+            quantity: 100,
+            isAvailable: true,
+            percentageSold: 0
+          }],act-router-dom";
 import Navbar from "../components/Dashboard component/Navbar";
 import { ImageSlider } from "../components/Dashboard component/ImageSlider";
 import SearchFilter from "../components/Dashboard component/SearchFilter";
@@ -42,8 +64,7 @@ const Dashboard = () => {
       maxAttendees: backendEvent.maxAttendees || 100,
       attendees: backendEvent.attendees || 0,
       tags: backendEvent.tags || [],
-      // Handle new ticket structure with totalQuantity, availableQuantity, soldQuantity
-      tickets: backendEvent.tickets && backendEvent.tickets.length > 0 
+      tickets: backendEvent.tickets && backendEvent.tickets.length > 2 
         ? backendEvent.tickets.map(ticket => ({
             id: ticket._id || ticket.id,
             name: ticket.name,
@@ -68,42 +89,17 @@ const Dashboard = () => {
             percentageSold: 0
           }],
       price: backendEvent.tickets && backendEvent.tickets.length > 0 ? backendEvent.tickets[0].price : 0,
-      // Update ticketTypes to match new structure
       ticketTypes: backendEvent.tickets && backendEvent.tickets.length > 0 
         ? backendEvent.tickets.map(ticket => ({
-            id: ticket._id || ticket.id,
             name: ticket.name,
             price: ticket.price,
-            totalQuantity: ticket.totalQuantity || ticket.quantity || 100,
-            availableQuantity: ticket.availableQuantity || ticket.quantity || 100,
-            soldQuantity: ticket.soldQuantity || 0,
-            quantity: ticket.totalQuantity || ticket.quantity || 100,
-            isAvailable: (ticket.availableQuantity || ticket.quantity || 100) > 0,
-            percentageSold: ticket.totalQuantity ? ((ticket.soldQuantity || 0) / ticket.totalQuantity * 100).toFixed(1) : 0
+            quantity: ticket.quantity
           }))
-        : [{ 
-            id: 'default',
-            name: 'General Admission', 
-            price: 0, 
-            totalQuantity: 100,
-            availableQuantity: 100,
-            soldQuantity: 0,
-            quantity: 100,
-            isAvailable: true,
-            percentageSold: 0
-          }],
+        : [{ name: 'General Admission', price: 0, quantity: 100 }],
       formattedDate: backendEvent.date ? new Date(backendEvent.date).toLocaleDateString() : '',
       formattedTime: backendEvent.time || 'Time TBA',
       category: backendEvent.category || backendEvent.type,
       isFree: backendEvent.tickets ? backendEvent.tickets.every(ticket => ticket.price === 0) : true,
-      // Add additional fields from backend
-      totalSoldTickets: backendEvent.totalSoldTickets || 0,
-      totalAvailableTickets: backendEvent.totalAvailableTickets || 0,
-      totalTickets: backendEvent.totalTickets || (backendEvent.totalSoldTickets || 0) + (backendEvent.totalAvailableTickets || 0) || 
-        (backendEvent.tickets && backendEvent.tickets.length > 0 
-          ? backendEvent.tickets.reduce((sum, ticket) => sum + (ticket.totalQuantity || ticket.quantity || 0), 0)
-          : 100),
-      isSoldOut: backendEvent.totalAvailableTickets === 0,
       createdAt: backendEvent.createdAt,
       updatedAt: backendEvent.updatedAt
     };
@@ -205,7 +201,7 @@ const Dashboard = () => {
   useEffect(() => {
     const loggedInUser = localStorage.getItem("loggedInUser");
     if (!loggedInUser) {
-      navigate("/dashboard");
+      navigate("/dashboard"); // this should redirect to the login page
     } else {
       setUsername(loggedInUser);
     }
@@ -237,12 +233,18 @@ const Dashboard = () => {
       }
       
       console.log(`${isCurrentlyEnrolled ? 'Unenrolling from' : 'Enrolling in'} event ${eventId}...`);
+      console.log('Current user ID:', userId);
+      console.log('Is currently enrolled:', isCurrentlyEnrolled);
       
+      // Use different endpoints for enroll/unenroll
       const endpoint = isCurrentlyEnrolled 
         ? `/api/events/${eventId}/unregister`
         : `/api/events/${eventId}/register`;
       
       const method = isCurrentlyEnrolled ? 'DELETE' : 'POST';
+      
+      console.log('API endpoint:', endpoint);
+      console.log('HTTP method:', method);
       
       const response = await fetch(endpoint, {
         method: method,
@@ -258,6 +260,21 @@ const Dashboard = () => {
           localStorage.clear();
           navigate("/login");
           return;
+        } else if (response.status === 403) {
+          alert("You don't have permission to perform this action.");
+          return;
+        } else if (response.status === 404) {
+          alert("Event not found.");
+          return;
+        } else if (response.status === 400) {
+          const errorData = await response.json().catch(() => ({}));
+          if (errorData.message && errorData.message.includes('already registered')) {
+            alert("You are already enrolled in this event!");
+            return;
+          } else if (errorData.message && errorData.message.includes('not registered')) {
+            alert("You are not enrolled in this event!");
+            return;
+          }
         }
         
         const errorData = await response.json().catch(() => ({}));
@@ -267,12 +284,17 @@ const Dashboard = () => {
       const data = await response.json();
       console.log(`${isCurrentlyEnrolled ? 'Unenrollment' : 'Enrollment'} response:`, data);
       
-      // Update local events state
+      // Update local events state to reflect the attendance count change
       setEvents(events.map(event => {
         if (event.id === eventId) {
-          const updatedAttendeeCount = isCurrentlyEnrolled 
-            ? Math.max(0, event.attendees - 1)
-            : event.attendees + 1;
+          let updatedAttendeeCount;
+          if (isCurrentlyEnrolled) {
+            // For unenrollment, decrease count
+            updatedAttendeeCount = Math.max(0, event.attendees - 1);
+          } else {
+            // For enrollment, increase count
+            updatedAttendeeCount = event.attendees + 1;
+          }
           
           return { 
             ...event, 
@@ -286,9 +308,14 @@ const Dashboard = () => {
       
       // Update selected event if it's currently open
       if (selectedEvent && selectedEvent.id === eventId) {
-        const updatedAttendeeCount = isCurrentlyEnrolled 
-          ? Math.max(0, selectedEvent.attendees - 1)
-          : selectedEvent.attendees + 1;
+        let updatedAttendeeCount;
+        if (isCurrentlyEnrolled) {
+          // For unenrollment, decrease count
+          updatedAttendeeCount = Math.max(0, selectedEvent.attendees - 1);
+        } else {
+          // For enrollment, increase count
+          updatedAttendeeCount = selectedEvent.attendees + 1;
+        }
         
         setSelectedEvent({ 
           ...selectedEvent, 
@@ -305,7 +332,16 @@ const Dashboard = () => {
       
     } catch (error) {
       console.error(`${isCurrentlyEnrolled ? 'Unenrollment' : 'Enrollment'} failed:`, error);
-      alert(`❌ ${error.message}`);
+      
+      // Provide user-friendly error messages
+      let errorMessage;
+      if (error.message.includes('network') || error.message.includes('fetch')) {
+        errorMessage = "Network error. Please check your connection and try again.";
+      } else {
+        errorMessage = error.message || `Failed to ${isCurrentlyEnrolled ? 'unenroll from' : 'enroll in'} event`;
+      }
+      
+      alert(`❌ ${errorMessage}`);
     } finally {
       setEnrolling(false);
     }
@@ -349,10 +385,10 @@ const Dashboard = () => {
       }
     }
     
-    // Price range filtering
+    // Price range filtering (based on first ticket price or 0 if no tickets)
     let matchesPriceRange = true;
     if (filters.priceRange !== "All") {
-      const price = event.price;
+      const price = event.price; // Already calculated from first ticket in transformEventData
       
       switch (filters.priceRange) {
         case "free":

@@ -99,10 +99,6 @@ const Dashboard = () => {
       // Add additional fields from backend
       totalSoldTickets: backendEvent.totalSoldTickets || 0,
       totalAvailableTickets: backendEvent.totalAvailableTickets || 0,
-      totalTickets: backendEvent.totalTickets || (backendEvent.totalSoldTickets || 0) + (backendEvent.totalAvailableTickets || 0) || 
-        (backendEvent.tickets && backendEvent.tickets.length > 0 
-          ? backendEvent.tickets.reduce((sum, ticket) => sum + (ticket.totalQuantity || ticket.quantity || 0), 0)
-          : 100),
       isSoldOut: backendEvent.totalAvailableTickets === 0,
       createdAt: backendEvent.createdAt,
       updatedAt: backendEvent.updatedAt

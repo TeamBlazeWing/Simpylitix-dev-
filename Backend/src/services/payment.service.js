@@ -2,6 +2,7 @@ const User = require('../models/user.model');
 const Payment = require('../models/payment.model');
 const Ticket = require('../models/ticket.model');
 const TicketService = require('./ticket.service');
+const eventService = require('./event.service');
 
 exports.buyTickets = async (eventId, tickets, method, userId) => {
   try {
@@ -10,6 +11,14 @@ exports.buyTickets = async (eventId, tickets, method, userId) => {
     if (!user) {
       throw new Error('User not found');
     }
+
+    // Validate ticket availability before processing payment
+    const ticketPurchases = tickets.map(ticket => ({
+      ticketName: ticket.name,
+      quantity: ticket.quantity
+    }));
+    
+    await eventService.validateTicketAvailability(eventId, ticketPurchases);
 
     // Calculate total amount
     let totalAmount = 0;
@@ -44,6 +53,9 @@ exports.buyTickets = async (eventId, tickets, method, userId) => {
       },
       { new: true }
     );
+
+    // Update ticket quantities in event
+    await eventService.updateTicketQuantities(eventId, ticketPurchases);
 
     // Generate tickets
     const ticketsData = await TicketService.generateTickets(

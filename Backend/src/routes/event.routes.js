@@ -124,4 +124,26 @@ router.put('/:id', auth, eventController.updateEvent);
  */
 router.delete('/:id', auth, eventController.deleteEvent);  
 
+/**
+ * @swagger
+ * /api/events/{id}/tickets:
+ *   get:
+ *     summary: Get ticket availability for an event
+ *     tags: [Events]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         description: Event ID
+ *         required: true
+ *         schema:
+ *           type: string
+ *           example: 62a7c9bf1234567890abcdef
+ *     responses:
+ *       200:
+ *         description: Ticket availability information
+ *       404:
+ *         description: Event not found
+ */
+router.get('/:id/tickets', eventController.getTicketAvailability);
+
 module.exports = router;

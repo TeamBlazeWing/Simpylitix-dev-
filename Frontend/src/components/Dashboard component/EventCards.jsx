@@ -10,9 +10,13 @@ const EventCards = ({ events, onEventClick, currentUserId }) => (
       // Format creation date
       const creationDate = event.createdAt ? new Date(event.createdAt).toLocaleDateString() : 'N/A';
       
-      // Get ticket information with prices
+      // Get ticket information with prices and availability
       const ticketInfo = event.tickets && event.tickets.length > 0 
-        ? event.tickets.map(ticket => `${ticket.name}: ${ticket.price}`).join(', ')
+        ? event.tickets.map(ticket => {
+            const soldInfo = ticket.soldQuantity > 0 ? ` (${ticket.soldQuantity} sold)` : '';
+            const availableInfo = ticket.availableQuantity < ticket.totalQuantity ? ` - ${ticket.availableQuantity} left` : '';
+            return `${ticket.name}: $${ticket.price}${soldInfo}${availableInfo}`;
+          }).join(', ')
         : 'No tickets available';
       
       return (
@@ -39,6 +43,20 @@ const EventCards = ({ events, onEventClick, currentUserId }) => (
             <div className="absolute top-3 left-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-bold px-3 py-1 rounded-full shadow-lg transform transition-transform duration-300 group-hover:scale-110">
             ${event.price}
             </div>
+            
+            {/* Sold tickets badge */}
+            {event.totalSoldTickets > 0 && (
+              <div className="absolute top-3 left-20 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-semibold px-2 py-1 rounded-full shadow-lg transform transition-transform duration-300 group-hover:scale-110">
+                {event.totalSoldTickets} sold
+              </div>
+            )}
+            
+            {/* Sold out badge */}
+            {event.isSoldOut && (
+              <div className="absolute top-3 left-3 bg-gradient-to-r from-red-600 to-red-700 text-white text-sm font-bold px-3 py-1 rounded-full shadow-lg transform transition-transform duration-300 group-hover:scale-110 animate-pulse">
+                SOLD OUT
+              </div>
+            )}
             
             {/* Enrollment status badge */}
             {isEnrolled && (
@@ -78,13 +96,7 @@ const EventCards = ({ events, onEventClick, currentUserId }) => (
               <span className="text-sm font-medium">Created: {creationDate}</span>
             </div>
             
-            {/* Event Code */}
-            {event.eventCode && (
-              <div className="flex items-center gap-2 text-gray-400">
-                <div className="w-2 h-2 bg-yellow-400 rounded-full" />
-                <span className="text-sm">Code: {event.eventCode}</span>
-              </div>
-            )}
+
             
             {/* Created By info */}
             {event.createdBy && (
@@ -94,15 +106,66 @@ const EventCards = ({ events, onEventClick, currentUserId }) => (
               </div>
             )}
             
-            {/* Ticket Information with Prices */}
+            {/* Ticket Information with Prices and Availability */}
             <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-2 h-2 bg-purple-400 rounded-full" />
-                <span className="text-sm text-gray-300 font-medium">Ticket Types & Prices</span>
+                <span className="text-sm text-gray-300 font-medium">Ticket Availability</span>
               </div>
-              <p className="text-sm text-white break-words" title={ticketInfo}>
-                {ticketInfo}
-              </p>
+              
+              {/* Overall ticket stats summary */}
+              {event.tickets && event.tickets.length > 0 ? (
+                <div className="mb-2 space-y-1">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-gray-400">Total Tickets:</span>
+                    <span className="text-white font-medium">{event.totalTickets || 0}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-gray-400">Sold:</span>
+                    <span className="text-orange-400 font-medium">{event.totalSoldTickets || 0}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-gray-400">Available:</span>
+                    <span className="text-green-400 font-medium">{event.totalAvailableTickets || 0}</span>
+                  </div>
+                  
+                  {/* Progress bar */}
+                  {event.totalTickets > 0 && (
+                    <div className="w-full bg-gray-700 rounded-full h-2 mt-2">
+                      <div 
+                        className="bg-gradient-to-r from-orange-500 to-red-500 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${((event.totalSoldTickets || 0) / event.totalTickets) * 100}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-400">No tickets available</div>
+              )}
+              
+              {/* Individual ticket types */}
+              <div className="space-y-1 mt-2 pt-2 border-t border-gray-700/50">
+                {event.tickets && event.tickets.length > 0 ? (
+                  event.tickets.map((ticket, index) => (
+                    <div key={index} className="text-xs text-white flex justify-between items-center">
+                      <div>
+                        <span className="font-medium">{ticket.name}</span>
+                        <span className="text-gray-400 ml-1">${ticket.price}</span>
+                      </div>
+                      <div className="text-right">
+                        {ticket.soldQuantity > 0 && (
+                          <span className="text-orange-400">{ticket.soldQuantity} sold</span>
+                        )}
+                        {ticket.availableQuantity >= 0 && (
+                          <span className="text-green-400 ml-1">• {ticket.availableQuantity} left</span>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-400">No ticket types defined</p>
+                )}
+              </div>
             </div>
             
             {/* Action button */}
