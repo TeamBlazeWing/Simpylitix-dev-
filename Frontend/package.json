@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.0.12",
+    "aos": "^2.3.4",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "qrcode": "^1.5.4",
@@ -20,6 +21,7 @@
     "react-icons": "^5.5.0",
     "react-router-dom": "^7.3.0",
     "react-select": "^5.10.1",
+    "styled-jsx": "^5.1.7",
     "tailwindcss": "^4.0.12"
   },
   "devDependencies": {

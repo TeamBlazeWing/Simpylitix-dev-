@@ -60,25 +60,83 @@ const Navbar = ({ username, onLogout }) => {
   // Get current path for active menu highlighting
   const isActivePath = (path) => location.pathname === path;
 
-  // Fetch notifications - TEMPORARILY DISABLED
+  // Fetch notifications
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      // Temporarily disabled to avoid errors
-      console.log("Notifications temporarily disabled");
-      setNotifications([]);
+      
+      const token = localStorage.getItem("accessToken");
+      if (!token || !isTokenValid(token)) {
+        console.log("No access token found or token is invalid");
+        if (token && !isTokenValid(token)) {
+          handleLogout();
+        }
+        return;
+      }
+      
+      const response = await fetch('http://localhost:3000/api/notifications', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      // Handle unauthorized response
+      if (response.status === 401) {
+        console.log("Unauthorized: Token rejected by server");
+        handleLogout();
+        return;
+      }
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setNotifications(data);
+      
     } catch (error) {
       console.error("Error fetching notifications:", error);
+      // Keep the existing notifications to avoid flashing empty state on error
     } finally {
       setLoading(false);
     }
   };
 
-  // Mark notification as read - TEMPORARILY DISABLED
+  // Mark notification as read
   const markAsRead = async (notificationId) => {
     try {
-      // Temporarily disabled to avoid errors
-      console.log("Mark as read temporarily disabled");
+      const token = localStorage.getItem("accessToken");
+      if (!token || !isTokenValid(token)) {
+        console.log("No access token found or token is invalid");
+        if (token && !isTokenValid(token)) {
+          handleLogout();
+        }
+        return;
+      }
+      
+      const response = await fetch(`http://localhost:3000/api/notifications/${notificationId}/read`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          handleLogout();
+          return;
+        }
+        throw new Error(`Failed to mark notification as read: ${response.status}`);
+      }
+      
+      // Update local state to reflect the change
+      setNotifications(prev => 
+        prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
+      );
+      
     } catch (error) {
       console.error("Error marking notification as read:", error);
     }
@@ -257,14 +315,21 @@ const Navbar = ({ username, onLogout }) => {
     };
   }, []);
 
-  // Fetch notifications on component mount - TEMPORARILY DISABLED
+  // Fetch notifications on component mount
   useEffect(() => {
-    // Temporarily disabled to avoid errors
-    console.log("Notification fetching temporarily disabled");
-    setNotifications([]);
+    // Only fetch notifications if the user is logged in
+    const token = localStorage.getItem("accessToken");
+    if (token && isTokenValid(token)) {
+      fetchNotifications();
+      
+      // Set up interval to periodically fetch notifications
+      const notificationInterval = setInterval(fetchNotifications, 60000); // Every minute
+      
+      // Clean up interval on unmount
+      return () => clearInterval(notificationInterval);
+    }
     
     // Auto-fetch subscription status when component mounts
-    const token = localStorage.getItem("accessToken");
     if (token) {
       getSubscriptionStatus();
     }

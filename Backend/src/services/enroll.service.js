@@ -35,10 +35,28 @@ exports.getMyEnrollments = async (userId) => {
   const user = await User.findById(userId);
   if (!user) throw new Error('User not found');
 
-  // Get all enrollments for the user
-  const enrollments = await Enrollment.find({ userId });
+  // Get all enrollments for the user with populated event details
+  const enrollments = await Enrollment.find({ userId })
+    .populate({
+      path: 'eventId',
+      select: 'title description type date location district imageUrl price tickets maxAttendees'
+    })
+    .sort({ createdAt: -1 });
   
-  return { data: enrollments || [] };
+  // Format the response for the frontend
+  const formattedEnrollments = enrollments.map(enrollment => {
+    return {
+      id: enrollment._id,
+      event: enrollment.eventId,
+      enrolledAt: enrollment.createdAt
+    };
+  });
+  
+  return { 
+    success: true, 
+    count: enrollments.length,
+    data: formattedEnrollments || [] 
+  };
 };
 
 // Cancel enrollment

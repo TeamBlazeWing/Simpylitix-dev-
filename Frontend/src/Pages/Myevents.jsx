@@ -1,11 +1,56 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { FaEye, FaDollarSign, FaPlus, FaTrash, FaBell } from "react-icons/fa6";
-import { FaCalendarAlt, FaTimes, FaEdit } from "react-icons/fa";
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  FaEye,
+  FaDollarSign,
+  FaCalendarAlt,
+  FaCalendarPlus,
+  FaPlus,
+  FaTimes,
+  FaTrash,
+  FaEdit,
+  FaMapMarkerAlt,
+  FaClock,
+  FaTicketAlt,
+  FaInfoCircle,
+  FaCheck,
+  FaUserPlus,
+  FaBell
+} from 'react-icons/fa';
 import Navbar from '../components/Event component/Navbar';
 import Footer from "../components/Event component/Footer";
 import EventCards from '../components/Event component/EventCards';
 import EventModal from '../components/Event component/EventModal';
+
+const isTokenValid = (token) => {
+  if (!token) return false;
+  
+  try {
+    // JWT tokens are made up of three parts: header.payload.signature
+    const base64Url = token.split('.')[1]; // Get the payload part
+    if (!base64Url) return false;
+    
+    // Convert base64 to JSON
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(window.atob(base64));
+    
+    // Check if token has expired
+    const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
+    return payload.exp > currentTime;
+  } catch (error) {
+    console.error("Error validating token:", error);
+    return false;
+  }
+};
+
+// Helper function to clear authentication data
+const clearAuthData = () => {
+  localStorage.removeItem("isLoggedIn");
+  localStorage.removeItem("loggedInUser");
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("userId");
+};
 
 // Event Cards Component for Enrolled Events - No Enrolled Events Message
 const NoEnrolledEventsMessage = () => {
@@ -69,6 +114,7 @@ const EnrollmentStats = ({ enrolledEventsCount, totalPrice }) => {
 const Myevents = () => {
   const [username, setUsername] = useState("");
   const [events, setEvents] = useState([]);
+  const [enrolledEventsData, setEnrolledEventsData] = useState([]); // Add state for enrolled events from API
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -90,10 +136,11 @@ const Myevents = () => {
       
       const accessToken = localStorage.getItem("accessToken");
       
-      // Check if user is authenticated
-      if (!accessToken) {
-        console.error("No access token found. User needs to log in.");
-        navigate("/login");
+      // Check if user is authenticated and token is valid
+      if (!accessToken || !isTokenValid(accessToken)) {
+        console.error("No access token found or token is invalid. User needs to log in.");
+        clearAuthData();
+        navigate("/login", { state: { message: "Your session has expired. Please log in again." } });
         return;
       }
       
@@ -107,11 +154,8 @@ const Myevents = () => {
       
       if (response.status === 401) {
         console.error("Access token expired or invalid. Redirecting to login...");
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("isLoggedIn");
-        localStorage.removeItem("loggedInUser");
-        localStorage.removeItem("userId");
-        navigate("/login");
+        clearAuthData();
+        navigate("/login", { state: { message: "Your session has expired. Please log in again." } });
         return;
       }
       
@@ -122,27 +166,37 @@ const Myevents = () => {
       const data = await response.json();
       console.log('Successfully fetched events from backend:', data);
       
-      // Ensure we always set an array for events
+      // Handle both direct array and wrapped response formats
+      let eventsArray = [];
       if (Array.isArray(data)) {
-        // Transform events to ensure consistent ID field
-        const transformedEvents = data.map(event => ({
-          ...event,
-          id: event._id || event.id // Ensure both id and _id are available
-        }));
-        setEvents(transformedEvents);
-        console.log('Events set as array:', transformedEvents.length, 'events');
+        eventsArray = data;
+      } else if (data && data.success && Array.isArray(data.data)) {
+        eventsArray = data.data;
       } else if (data && Array.isArray(data.events)) {
-        // Transform events to ensure consistent ID field
-        const transformedEvents = data.events.map(event => ({
+        eventsArray = data.events;
+      } else {
+        console.warn('API response format not recognized:', data);
+        eventsArray = [];
+      }
+      
+      // Transform events to ensure consistent ID field and log creator info
+      const transformedEvents = eventsArray.map(event => {
+        console.log('Processing event:', {
+          title: event.title,
+          createdBy: event.createdBy,
+          creator: event.creator,
+          _id: event._id
+        });
+        
+        return {
           ...event,
           id: event._id || event.id // Ensure both id and _id are available
-        }));
-        setEvents(transformedEvents);
-        console.log('Events set from data.events:', transformedEvents.length, 'events');
-      } else {
-        console.warn('API response is not an array:', data);
-        setEvents([]);
-      }
+        };
+      });
+      
+      setEvents(transformedEvents);
+      console.log('Events set:', transformedEvents.length, 'events with creators:', 
+        transformedEvents.map(e => ({ title: e.title, createdBy: e.createdBy, creator: e.creator })));
       
       setError(null);
     } catch (error) {
@@ -154,25 +208,116 @@ const Myevents = () => {
     }
   };
 
-  // Fetch events from backend API
+  // Fetch enrollments for the current user
+  const fetchUserEnrollments = async () => {
+    try {
+      console.log('Fetching user enrollments...');
+      setLoading(true);
+      
+      const accessToken = localStorage.getItem("accessToken");
+      
+      // Check if user is authenticated and token is valid
+      if (!accessToken || !isTokenValid(accessToken)) {
+        console.error("No access token found or token is invalid. User needs to log in.");
+        clearAuthData();
+        navigate("/login", { state: { message: "Your session has expired. Please log in again." } });
+        return;
+      }
+      
+      const response = await fetch('http://localhost:3000/api/enrollments/my', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.status === 401) {
+        console.error("Access token expired or invalid. Redirecting to login...");
+        clearAuthData();
+        navigate("/login", { state: { message: "Your session has expired. Please log in again." } });
+        return;
+      }
+      
+      if (!response.ok) {
+        throw new Error(`Backend API error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Successfully fetched user enrollments:', data);
+      
+      // Process the enrolled events
+      if (data && data.success && Array.isArray(data.data)) {
+        // Extract event details from enrollment data
+        const enrolledEvents = data.data.map(enrollment => ({
+          ...enrollment.event,
+          enrollmentId: enrollment._id,
+          enrolledAt: enrollment.enrolledAt
+        }));
+        
+        console.log('Enrolled events from API:', enrolledEvents.length);
+        
+        // Set enrolled events to state
+        setEnrolledEventsData(enrolledEvents);
+        return enrolledEvents;
+      } else {
+        setEnrolledEventsData([]);
+        return [];
+      }
+    } catch (error) {
+      console.error('Error fetching user enrollments:', error);
+      setError("Failed to load enrolled events. Please check your connection and ensure the backend server is running.");
+      setEnrolledEventsData([]);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch events and enrollments from backend API
   useEffect(() => {
-    fetchEvents();
+    const fetchData = async () => {
+      try {
+        // First fetch all events (for created events)
+        await fetchEvents();
+        // Then fetch enrolled events specifically
+        await fetchUserEnrollments();
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+    
+    fetchData();
   }, [navigate]);
 
   useEffect(() => {
     const loggedInUser = localStorage.getItem("loggedInUser");
-    if (!loggedInUser) {
+    const token = localStorage.getItem("accessToken");
+    const userId = localStorage.getItem("userId");
+    
+    console.log('Auth check:', { loggedInUser, hasToken: !!token, userId });
+    
+    // Validate authentication
+    if (!loggedInUser || !token) {
+      console.log("No user logged in or token missing, redirecting to login");
+      clearAuthData();
       navigate("/login");
-    } else {
-      setUsername(loggedInUser);
+      return;
     }
+    
+    // Check if token is valid
+    if (!isTokenValid(token)) {
+      console.log("Token expired or invalid, redirecting to login");
+      clearAuthData();
+      navigate("/login", { state: { message: "Your session has expired. Please log in again." } });
+      return;
+    }
+    
+    setUsername(loggedInUser);
   }, [navigate]);
 
   const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("loggedInUser");
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("userId");
+    clearAuthData();
     navigate("/login");
   };
 
@@ -184,9 +329,10 @@ const Myevents = () => {
       const token = localStorage.getItem("accessToken");
       const userId = localStorage.getItem("userId");
       
-      if (!token || !userId) {
-        alert("Please log in to enroll in events");
-        navigate("/login");
+      if (!token || !userId || !isTokenValid(token)) {
+        alert("Your session has expired. Please log in again.");
+        clearAuthData();
+        navigate("/login", { state: { message: "Your session has expired. Please log in again." } });
         return;
       }
       
@@ -214,9 +360,9 @@ const Myevents = () => {
       
       if (!response.ok) {
         if (response.status === 401) {
-          alert("Session expired. Please log in again.");
-          localStorage.clear();
-          navigate("/login");
+          alert("Your session has expired. Please log in again.");
+          clearAuthData();
+          navigate("/login", { state: { message: "Your session has expired. Please log in again." } });
           return;
         } else if (response.status === 403) {
           alert("You don't have permission to perform this action.");
@@ -303,23 +449,21 @@ const Myevents = () => {
 
   // Create Event Form Component
   const CreateEventForm = ({ isOpen, onClose, onEventCreated, editingEvent = null }) => {
-    const [formData, setFormData] = useState({
-      title: '',
-      description: '',
-      type: 'conference',
-      date: '',
-      location: '',
-      imageUrl: '',
-      price: 0,
-      district: '',
-      expirationDate: '',
-      maxAttendees: 100,
-      registrationLink: '',
-      tags: '',
-      tickets: [
-        { name: 'General Admission', price: 0, quantity: 100 }
-      ]
-    });
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    type: 'conference',
+    date: '',
+    time: '',
+    location: '',
+    imageUrl: '',
+    district: '',
+    maxAttendees: 100,
+    tags: '',
+    tickets: [
+      { name: 'General Admission', price: 0, quantity: 100 }
+    ]
+  });
     
     const [loading, setLoading] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
@@ -336,13 +480,11 @@ const Myevents = () => {
           description: editingEvent.description || '',
           type: editingEvent.type || 'conference',
           date: editingEvent.date ? new Date(editingEvent.date).toISOString().slice(0, 16) : '',
+          time: editingEvent.time || '',
           location: editingEvent.location || '',
           imageUrl: editingEvent.imageUrl || '',
-          price: editingEvent.price || 0,
           district: editingEvent.district || '',
-          expirationDate: editingEvent.expirationDate ? new Date(editingEvent.expirationDate).toISOString().slice(0, 16) : '',
           maxAttendees: editingEvent.maxAttendees || 100,
-          registrationLink: editingEvent.registrationLink || '',
           tags: editingEvent.tags ? editingEvent.tags.join(', ') : '',
           tickets: editingEvent.tickets && editingEvent.tickets.length > 0 ? editingEvent.tickets : [
             { name: 'General Admission', price: 0, quantity: 100 }
@@ -354,13 +496,11 @@ const Myevents = () => {
           description: '',
           type: 'conference',
           date: '',
+          time: '',
           location: '',
           imageUrl: '',
-          price: 0,
           district: '',
-          expirationDate: '',
           maxAttendees: 100,
-          registrationLink: '',
           tags: '',
           tickets: [
             { name: 'General Admission', price: 0, quantity: 100 }
@@ -401,8 +541,10 @@ const Myevents = () => {
 
       try {
         const token = localStorage.getItem("accessToken");
-        if (!token) {
-          alert("Please log in to upload images");
+        if (!token || !isTokenValid(token)) {
+          alert("Your session has expired. Please log in again.");
+          clearAuthData();
+          navigate("/login", { state: { message: "Your session has expired. Please log in again." } });
           return;
         }
 
@@ -419,9 +561,9 @@ const Myevents = () => {
 
         if (!response.ok) {
           if (response.status === 401) {
-            alert("Session expired. Please log in again.");
-            localStorage.clear();
-            navigate("/login");
+            alert("Your session has expired. Please log in again.");
+            clearAuthData();
+            navigate("/login", { state: { message: "Your session has expired. Please log in again." } });
             return;
           }
           const errorData = await response.json().catch(() => ({}));
@@ -476,9 +618,10 @@ const Myevents = () => {
 
       try {
         const token = localStorage.getItem("accessToken");
-        if (!token) {
-          alert("Please log in to create events");
-          navigate("/login");
+        if (!token || !isTokenValid(token)) {
+          alert("Your session has expired. Please log in again.");
+          clearAuthData();
+          navigate("/login", { state: { message: "Your session has expired. Please log in again." } });
           return;
         }
 
@@ -486,6 +629,7 @@ const Myevents = () => {
         const userId = localStorage.getItem("userId");
         if (!userId) {
           alert("User ID not found. Please log in again.");
+          clearAuthData();
           navigate("/login");
           return;
         }
@@ -493,7 +637,6 @@ const Myevents = () => {
         // Prepare the event data
         const eventData = {
           ...formData,
-          price: parseFloat(formData.price),
           maxAttendees: parseInt(formData.maxAttendees),
           tags: formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
           tickets: formData.tickets.map(ticket => ({
@@ -502,12 +645,12 @@ const Myevents = () => {
             quantity: parseInt(ticket.quantity)
           }))
         };
-
-        // Set volunteer field for both create and update operations
-        eventData.volunteer = userId;
+        
+        // Remove the standalone price field as it's handled in tickets
+        delete eventData.price;
 
         // Validate required fields before sending
-        const requiredFields = ['title', 'type', 'date', 'location', 'district', 'expirationDate'];
+        const requiredFields = ['title', 'type', 'date', 'time', 'location', 'district', 'maxAttendees'];
         const missingFields = requiredFields.filter(field => !eventData[field] || eventData[field] === '');
         
         if (missingFields.length > 0) {
@@ -515,8 +658,14 @@ const Myevents = () => {
           return;
         }
 
-        if (eventData.price === undefined || eventData.price === null || eventData.price === '') {
-          alert('❌ Please enter a valid price');
+        // Validate that at least one ticket type has a valid price
+        const hasValidTicket = eventData.tickets.some(ticket => 
+          ticket.name && !isNaN(ticket.price) && !isNaN(ticket.quantity) && 
+          ticket.price >= 0 && ticket.quantity > 0
+        );
+
+        if (!hasValidTicket) {
+          alert('❌ Please ensure at least one ticket type has a valid name, price, and quantity');
           return;
         }
 
@@ -526,11 +675,11 @@ const Myevents = () => {
         console.log('- title:', eventData.title);
         console.log('- type:', eventData.type);
         console.log('- date:', eventData.date);
+        console.log('- time:', eventData.time);
         console.log('- location:', eventData.location);
         console.log('- price:', eventData.price);
         console.log('- district:', eventData.district);
-        console.log('- volunteer:', eventData.volunteer);
-        console.log('- expirationDate:', eventData.expirationDate);
+
 
         const url = editingEvent 
           ? `http://localhost:3000/api/events/${editingEvent._id || editingEvent.id}`
@@ -549,9 +698,9 @@ const Myevents = () => {
 
         if (!response.ok) {
           if (response.status === 401) {
-            alert("Session expired. Please log in again.");
-            localStorage.clear();
-            navigate("/login");
+            alert("Your session has expired. Please log in again.");
+            clearAuthData();
+            navigate("/login", { state: { message: "Your session has expired. Please log in again." } });
             return;
           }
           const errorData = await response.json().catch(() => ({}));
@@ -571,13 +720,11 @@ const Myevents = () => {
           description: '',
           type: 'conference',
           date: '',
+          time: '',
           location: '',
           imageUrl: '',
-          price: 0,
           district: '',
-          expirationDate: '',
           maxAttendees: 100,
-          registrationLink: '',
           tags: '',
           tickets: [
             { name: 'General Admission', price: 0, quantity: 100 }
@@ -674,11 +821,11 @@ const Myevents = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Expiration Date *</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Event Time *</label>
                   <input
-                    type="datetime-local"
-                    name="expirationDate"
-                    value={formData.expirationDate}
+                    type="time"
+                    name="time"
+                    value={formData.time}
                     onChange={handleInputChange}
                     required
                     className="w-full px-4 py-2 bg-gray-800/50 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -715,22 +862,7 @@ const Myevents = () => {
               </div>
 
               {/* Additional Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Base Price *</label>
-                  <input
-                    type="number"
-                    name="price"
-                    value={formData.price}
-                    onChange={handleInputChange}
-                    min="0"
-                    step="0.01"
-                    required
-                    className="w-full px-4 py-2 bg-gray-800/50 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="0.00"
-                  />
-                </div>
-
+              <div className="grid grid-cols-1 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">Max Attendees *</label>
                   <input
@@ -778,18 +910,6 @@ const Myevents = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Registration Link</label>
-                  <input
-                    type="url"
-                    name="registrationLink"
-                    value={formData.registrationLink}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 bg-gray-800/50 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="https://register.example.com"
-                  />
-                </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">Tags (comma separated)</label>
                   <input
@@ -905,71 +1025,168 @@ const Myevents = () => {
     );
   };
 
-  // Filter events to show only enrolled events (with loading guard)
+  // Event Card Component
+const EventCard = ({ event, isEnrolled, onEnroll, onViewDetails, onEdit, onDelete }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const userId = localStorage.getItem("userId");
+  // Check both 'creator' and 'createdBy' fields (backend uses 'createdBy')
+  const isCreator = event.creator?._id === userId || event.creator === userId || 
+                   event.createdBy?._id === userId || event.createdBy === userId;
+  
+  // Calculate remaining tickets
+  const totalTickets = event.tickets?.reduce((sum, ticket) => sum + ticket.quantity, 0) || 0;
+  const remainingTickets = totalTickets - (event.attendees?.length || 0);
+  const ticketPrice = event.tickets?.[0]?.price || 0;
+
+  return (
+    <div
+      className="relative bg-black/40 backdrop-blur-sm rounded-2xl shadow-xl border border-white/10 overflow-hidden transition-all duration-300 hover:shadow-2xl hover:scale-[1.02] hover:border-white/20"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Event Image */}
+      <div className="relative h-48 overflow-hidden">
+        <img
+          src={event.imageUrl || 'https://via.placeholder.com/400x200'}
+          alt={event.title}
+          className="w-full h-full object-cover"
+        />
+        {/* Overlay with event type badge */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent">
+          <span className="absolute bottom-4 left-4 px-3 py-1 bg-blue-600 text-white text-sm rounded-full capitalize">
+            {event.type}
+          </span>
+          {isCreator && (
+            <span className="absolute bottom-4 right-4 px-3 py-1 bg-green-600 text-white text-sm rounded-full">
+              Created by You
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Event Content */}
+      <div className="p-6 space-y-4">
+        <h3 className="text-xl font-bold text-white line-clamp-2">{event.title}</h3>
+        
+        <div className="space-y-2">
+          {/* Date and Time */}
+          <div className="flex items-center text-gray-300">
+            <FaCalendarAlt className="mr-2" />
+            <span>
+              {new Date(event.date).toLocaleDateString()} at {event.time}
+            </span>
+          </div>
+          
+          {/* Location */}
+          <div className="flex items-center text-gray-300">
+            <FaMapMarkerAlt className="mr-2" />
+            <span>{event.location}</span>
+          </div>
+
+          {/* Price and Tickets */}
+          <div className="flex justify-between items-center">
+            <div className="flex items-center text-gray-300">
+              <FaTicketAlt className="mr-2" />
+              <span>{remainingTickets} tickets left</span>
+            </div>
+            <div className="text-white font-bold">
+              {ticketPrice > 0 ? `$${ticketPrice.toFixed(2)}` : 'Free'}
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex justify-between items-center pt-4 border-t border-white/10">
+          <button
+            onClick={() => onViewDetails(event)}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
+          >
+            <FaEye />
+            View Details
+          </button>
+
+          {isCreator ? (
+            <div className="flex gap-2">
+              <button
+                onClick={() => onEdit(event)}
+                className="p-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors"
+              >
+                <FaEdit />
+              </button>
+              <button
+                onClick={() => onDelete(event)}
+                className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              >
+                <FaTrash />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => onEnroll(event._id || event.id, isEnrolled)}
+              disabled={isEnrolled}
+              className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                isEnrolled
+                  ? 'bg-green-600 text-white cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+              }`}
+            >
+              {isEnrolled ? (
+                <>
+                  <FaCheck />
+                  Enrolled
+                </>
+              ) : (
+                <>
+                  <FaUserPlus />
+                  Enroll Now
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+  // Get current user ID
   const currentUserId = localStorage.getItem("userId");
   
   // Ensure events is always an array before filtering and component is not loading
   const safeEvents = Array.isArray(events) ? events : [];
   
-  // Filter enrolled events
-  const enrolledEvents = loading ? [] : safeEvents.filter(event => {
-    if (!event.attendees || !Array.isArray(event.attendees)) {
-      return false;
-    }
+  // Filter created events (events where creator matches current user ID)
+  const createdEvents = loading ? [] : safeEvents.filter(event => {
+    // Check both 'creator' and 'createdBy' fields (backend uses 'createdBy')
+    const eventCreatorId = event.creator?._id || event.creator || event.createdBy?._id || event.createdBy;
+    const isMatch = eventCreatorId === currentUserId;
     
-    // Handle both ObjectId objects and string comparisons
-    const isEnrolled = event.attendees.some(attendeeId => {
-      // Convert ObjectId to string if necessary
-      const attendeeIdStr = typeof attendeeId === 'object' && attendeeId._id 
-        ? attendeeId._id.toString() 
-        : attendeeId.toString();
-      
-      return attendeeIdStr === currentUserId;
+    // Debug logging
+    console.log('Event creator check:', {
+      eventTitle: event.title,
+      eventCreatorId,
+      currentUserId,
+      isMatch,
+      creatorObject: event.creator,
+      createdByObject: event.createdBy
     });
     
-    // Debug logging
-    if (isEnrolled) {
-      console.log(`User ${currentUserId} is enrolled in event: ${event.title}`);
-    }
-    
-    return isEnrolled;
+    return isMatch;
   });
-
-  // Filter created events (where current user is the creator/organizer)
-  const createdEvents = loading ? [] : safeEvents.filter(event => {
-    if (!event.createdBy) {
-      return false;
-    }
-    
-    // Handle both ObjectId objects and string comparisons
-    const createdByIdStr = typeof event.createdBy === 'object' && event.createdBy._id 
-      ? event.createdBy._id.toString() 
-      : event.createdBy.toString();
-    
-    const isCreator = createdByIdStr === currentUserId;
-    
-    // Debug logging
-    if (isCreator) {
-      console.log(`User ${currentUserId} created event: ${event.title}`);
-    }
-    
-    return isCreator;
-  });
-
-  // Debug logging for enrolled and created events
-  console.log(`Found ${enrolledEvents.length} enrolled events for user ${currentUserId}`);
-  console.log(`Found ${createdEvents.length} created events for user ${currentUserId}`);
-
+  
+  console.log(`Found ${createdEvents.length} created events by user ${currentUserId} out of ${safeEvents.length} total events`);
+  
   // Calculate total price of enrolled events
-  const totalPrice = enrolledEvents.reduce((sum, event) => sum + (event.price || 0), 0);
+  const totalPrice = enrolledEventsData.reduce((sum, event) => sum + (parseFloat(event.price) || 0), 0);
 
   // Enhanced delete function that checks for attendees
   const handleDeleteEvent = async (event) => {
     try {
       const token = localStorage.getItem("accessToken");
-      if (!token) {
-        alert("Please log in to delete events");
-        navigate("/login");
+      if (!token || !isTokenValid(token)) {
+        alert("Your session has expired. Please log in again.");
+        clearAuthData();
+        navigate("/login", { state: { message: "Your session has expired. Please log in again." } });
         return;
       }
 
@@ -1028,9 +1245,9 @@ const Myevents = () => {
 
       if (!response.ok) {
         if (response.status === 401) {
-          alert("Session expired. Please log in again.");
-          localStorage.clear();
-          navigate("/login");
+          alert("Your session has expired. Please log in again.");
+          clearAuthData();
+          navigate("/login", { state: { message: "Your session has expired. Please log in again." } });
           return;
         } else if (response.status === 403) {
           alert("You don't have permission to delete this event.");
@@ -1063,9 +1280,10 @@ const Myevents = () => {
   const handleEditEvent = async (event) => {
     try {
       const token = localStorage.getItem("accessToken");
-      if (!token) {
-        alert("Please log in to edit events");
-        navigate("/login");
+      if (!token || !isTokenValid(token)) {
+        alert("Your session has expired. Please log in again.");
+        clearAuthData();
+        navigate("/login", { state: { message: "Your session has expired. Please log in again." } });
         return;
       }
 
@@ -1262,15 +1480,6 @@ const Myevents = () => {
               View and manage all the events you've enrolled in. Keep track of your upcoming events and buy tickets when needed.
             </p>
             <div className="w-24 h-1 bg-gradient-to-r from-green-500 to-blue-500 mx-auto rounded-full mt-4"></div>
-            <div className="mt-6">
-              <button
-                onClick={() => setShowCreateForm(true)}
-                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 inline-flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105"
-              >
-                <FaPlus className="text-sm" />
-                Create New Event
-              </button>
-            </div>
           </div>
         </div>
 
@@ -1310,90 +1519,112 @@ const Myevents = () => {
 
         {/* Content */}
         {!loading && !error && (
-          <>
+          <div className="container mx-auto px-4 py-8">
             {/* Stats Section */}
-            <EnrollmentStats 
-              enrolledEventsCount={enrolledEvents.length}
+            <EnrollmentStats
+              enrolledEventsCount={enrolledEventsData.length}
               totalPrice={totalPrice}
             />
 
             {/* Created Events Section */}
-            <div className="w-full max-w-6xl mx-auto mb-8 px-4">
-              <div className="flex items-center mb-6">
-                <div className="flex items-center">
-                  <div className="bg-purple-500/20 rounded-full p-3 mr-4">
-                    <FaPlus className="text-2xl text-purple-400" />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-white">Your Created Events</h2>
-                    <p className="text-gray-400 text-sm">
-                      {createdEvents.length} event{createdEvents.length !== 1 ? 's' : ''} created by you
-                    </p>
-                  </div>
-                </div>
+            <div className="mb-12">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-white">Your Created Events</h2>
+                <button
+                  onClick={() => setShowCreateForm(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                >
+                  <FaPlus className="text-sm" />
+                  Create Event
+                </button>
               </div>
-              
-              {/* Use existing EventCards component or show no events message */}
-              {createdEvents.length > 0 ? (
-                <EventCards 
-                  events={createdEvents} 
-                  onEventClick={setSelectedEvent}
-                  currentUserId={currentUserId}
-                  showCreatorActions={true}
-                  onDeleteEvent={handleDeleteEvent}
-                  onEditEvent={handleEditEvent}
-                  onNotifyAttendees={handleNotifyAttendees}
-                />
+
+              {loading ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+                </div>
+              ) : createdEvents.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {createdEvents.map(event => (
+                    <EventCard
+                      key={event._id || event.id}
+                      event={event}
+                      isEnrolled={false}
+                      onEnroll={handleEnroll}
+                      onEdit={handleEditEvent}
+                      onDelete={handleDeleteEvent}
+                      onViewDetails={setSelectedEvent}
+                    />
+                  ))}
+                </div>
               ) : (
-                <div className="w-full max-w-6xl mx-auto mb-8">
-                  <div className="flex justify-center items-center py-12">
-                    <div className="text-center text-white">
-                      <div className="mb-4">
-                        <FaPlus className="text-6xl text-gray-400 mx-auto mb-4" />
-                      </div>
-                      <h4 className="text-2xl font-bold mb-2">
-                        No Created Events
-                      </h4>
-                      <p className="text-gray-300 text-lg">
-                        You haven't created any events yet.
-                      </p>
-                      <p className="text-gray-400 text-sm mt-2">
-                        Click "Create New Event" to get started!
-                      </p>
-                    </div>
-                  </div>
+                <div className="text-center py-12 bg-black/40 backdrop-blur-sm rounded-2xl border border-white/10">
+                  <FaCalendarPlus className="text-6xl text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-white mb-2">No Created Events</h3>
+                  <p className="text-gray-400">
+                    You haven't created any events yet. Click the Create Event button to get started!
+                  </p>
+                  <button
+                    onClick={() => setShowCreateForm(true)}
+                    className="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                  >
+                    Create Your First Event
+                  </button>
                 </div>
               )}
             </div>
 
             {/* Enrolled Events Section */}
-            <div className="w-full max-w-6xl mx-auto mb-8 px-4">
-              <div className="flex items-center mb-6">
-                <div className="flex items-center">
-                  <div className="bg-green-500/20 rounded-full p-3 mr-4">
-                    <FaEye className="text-2xl text-green-400" />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-white">Your Enrolled Events</h2>
-                    <p className="text-gray-400 text-sm">
-                      {enrolledEvents.length} event{enrolledEvents.length !== 1 ? 's' : ''} found
-                    </p>
-                  </div>
+            <div className="mb-12">
+              <h2 className="text-2xl font-bold text-white mb-6">Your Enrolled Events</h2>
+              {loading ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
                 </div>
-              </div>
-              
-              {/* Use existing EventCards component or show no events message */}
-              {enrolledEvents.length > 0 ? (
-                <EventCards 
-                  events={enrolledEvents} 
-                  onEventClick={setSelectedEvent}
-                  currentUserId={currentUserId}
-                />
+              ) : enrolledEventsData.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {enrolledEventsData.map(event => (
+                    <EventCard
+                      key={event._id}
+                      event={event}
+                      isEnrolled={true}
+                      onEnroll={handleEnroll}
+                      onViewDetails={setSelectedEvent}
+                    />
+                  ))}
+                </div>
               ) : (
                 <NoEnrolledEventsMessage />
               )}
             </div>
-          </>
+
+            {/* Create/Edit Event Modal */}
+            {showCreateForm && (
+              <CreateEventForm
+                isOpen={showCreateForm}
+                onClose={() => {
+                  setShowCreateForm(false);
+                  setEditingEvent(null);
+                }}
+                onEventCreated={() => {
+                  fetchEvents();
+                  fetchUserEnrollments();
+                }}
+                editingEvent={editingEvent}
+              />
+            )}
+
+            {/* Event Details Modal */}
+            {selectedEvent && (
+              <EventModal 
+                event={selectedEvent} 
+                onClose={() => setSelectedEvent(null)}
+                onEnroll={handleEnroll}
+                enrolling={enrolling}
+                currentUserId={currentUserId}
+              />
+            )}
+          </div>
         )}
         
         {/* Notification Modal */}
