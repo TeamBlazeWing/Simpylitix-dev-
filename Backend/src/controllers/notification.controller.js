@@ -118,7 +118,7 @@ exports.createNotification = async (req, res, next) => {
     }
     
     // Check if user is the event creator or has admin rights
-    if (event.volunteer.toString() !== createdBy && req.user.role !== 'admin') {
+    if (event.createdBy.toString() !== createdBy && req.user.role !== 'admin') {
       return next(new ApiError(403, 'You are not authorized to create notifications for this event'));
     }
     

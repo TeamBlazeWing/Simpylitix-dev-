@@ -146,4 +146,71 @@ router.delete('/:id', auth, eventController.deleteEvent);
  */
 router.get('/:id/tickets', eventController.getTicketAvailability);
 
+// Notification routes for events
+const notificationController = require('../controllers/notification.controller');
+
+/**
+ * @swagger
+ * /api/events/{eventId}/notifications:
+ *   get:
+ *     summary: Get all notifications for an event
+ *     tags: [Events]
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The event ID
+ *     responses:
+ *       200:
+ *         description: List of notifications
+ *       404:
+ *         description: Event not found
+ */
+router.get('/:eventId/notifications', notificationController.getEventNotifications);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/notifications:
+ *   post:
+ *     summary: Create a new notification for an event
+ *     tags: [Events]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The event ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - message
+ *             properties:
+ *               title:
+ *                 type: string
+ *               message:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *                 enum: [info, update, alert, reminder]
+ *                 default: info
+ *     responses:
+ *       201:
+ *         description: Notification created
+ *       403:
+ *         description: Not authorized
+ *       404:
+ *         description: Event not found
+ */
+router.post('/:eventId/notifications', auth, notificationController.createNotification);
+
 module.exports = router;

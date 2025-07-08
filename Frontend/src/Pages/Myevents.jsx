@@ -479,7 +479,7 @@ const EventModal = ({ event, onClose, onEnroll, enrolling, currentUserId }) => {
 };
 
 // Event Cards Component
-const EventCards = ({ events, onEventClick, currentUserId }) => (
+const EventCards = ({ events, onEventClick, currentUserId, onEditEvent, onDeleteEvent, onNotifyAttendees }) => (
   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8 px-4">
     {events.map((event, idx) => {
       // Use the isEnrolled property from the event data
@@ -487,6 +487,13 @@ const EventCards = ({ events, onEventClick, currentUserId }) => (
       
       // Format creation date
       const creationDate = event.createdAt ? new Date(event.createdAt).toLocaleDateString() : 'N/A';
+      
+      // Check if this user created the event
+      const isCreator = event.creator?._id === currentUserId || event.creator === currentUserId || 
+                       event.createdBy?._id === currentUserId || event.createdBy === currentUserId;
+      
+      // Get enrollment count for this event (for created events management)
+      const enrollmentCount = event.attendees?.length || event.enrollmentCount || 0;
       
       // Get ticket information with prices and availability
       const ticketInfo = event.tickets && event.tickets.length > 0 
@@ -500,8 +507,7 @@ const EventCards = ({ events, onEventClick, currentUserId }) => (
       return (
         <div
           key={idx}
-          className="group relative bg-gradient-to-br from-black/40 via-gray-900/30 to-black/50 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden cursor-pointer transform transition-all duration-500 hover:scale-105 hover:rotate-1 hover:shadow-2xl hover:shadow-gray-500/25"
-          onClick={() => onEventClick(event)}
+          className="group relative bg-gradient-to-br from-black/40 via-gray-900/30 to-black/50 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden transform transition-all duration-500 hover:scale-105 hover:rotate-1 hover:shadow-2xl hover:shadow-gray-500/25"
         >
           {/* Gradient overlay for better visual depth */}
           <div className="absolute inset-0 bg-gradient-to-br from-gray-600/5 via-transparent to-gray-500/5 transition-opacity duration-500" />
@@ -647,16 +653,103 @@ const EventCards = ({ events, onEventClick, currentUserId }) => (
             </div>
             
             {/* Action button */}
-            <div className="pt-2">
-              <button 
-                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-2 px-4 rounded-xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEventClick(event);
-                }}
-              >
-                {isEnrolled ? 'View Details' : 'View Tickets'}
-              </button>
+            <div className="pt-2 space-y-2">
+              {isCreator && onNotifyAttendees ? (
+                <>
+                  <div className="flex gap-x-2">
+                    <button
+                      type="button"
+                      className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-2 px-4 rounded-xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (typeof onEventClick === 'function') {
+                          onEventClick(event);
+                        }
+                      }}
+                    >
+                      {isEnrolled ? 'View Details' : 'View Tickets'}
+                    </button>
+                    <button
+                      type="button"
+                      className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-medium py-2 px-4 rounded-xl transition-all duration-300 text-sm flex items-center justify-center gap-2 ring-2 ring-yellow-300 shadow-lg"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (typeof onNotifyAttendees === 'function') {
+                          onNotifyAttendees(event);
+                        }
+                      }}
+                    >
+                      <FaBell className="text-xs" />
+                      Notify All ({enrollmentCount})
+                    </button>
+                  </div>
+                  {/* Edit and Delete buttons - Only available when no enrollments */}
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    {onEditEvent && (
+                      <button
+                        type="button"
+                        className={`w-full font-medium py-1.5 px-3 rounded-lg transition-all duration-300 text-sm flex items-center justify-center gap-1 ${
+                          enrollmentCount > 0 
+                            ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
+                            : 'bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white'
+                        }`}
+                        disabled={enrollmentCount > 0}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (enrollmentCount > 0) {
+                            alert(`Cannot edit event with ${enrollmentCount} enrolled attendee${enrollmentCount > 1 ? 's' : ''}. Please contact attendees first.`);
+                            return;
+                          }
+                          if (typeof onEditEvent === 'function') {
+                            onEditEvent(event);
+                          }
+                        }}
+                      >
+                        <FaEdit className="text-xs" />
+                        Edit
+                      </button>
+                    )}
+                    {onDeleteEvent && (
+                      <button
+                        type="button"
+                        className={`w-full font-medium py-1.5 px-3 rounded-lg transition-all duration-300 text-sm flex items-center justify-center gap-1 ${
+                          enrollmentCount > 0 
+                            ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
+                            : 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white'
+                        }`}
+                        disabled={enrollmentCount > 0}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (enrollmentCount > 0) {
+                            alert(`Cannot delete event with ${enrollmentCount} enrolled attendee${enrollmentCount > 1 ? 's' : ''}. Please unenroll all attendees first.`);
+                            return;
+                          }
+                          if (typeof onDeleteEvent === 'function') {
+                            onDeleteEvent(event);
+                          }
+                        }}
+                      >
+                        <FaTrash className="text-xs" />
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <button
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-2 px-4 rounded-xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEventClick(event);
+                  }}
+                >
+                  {isEnrolled ? 'View Details' : 'View Tickets'}
+                </button>
+              )}
             </div>
           </div>
           
@@ -771,7 +864,8 @@ const Myevents = () => {
         ? backendEvent.createdBy.name 
         : backendEvent.createdBy || 'Unknown',
       maxAttendees: backendEvent.maxAttendees || 100,
-      attendees: backendEvent.attendees || 0,
+      attendees: backendEvent.attendees || [],
+      enrollmentCount: Array.isArray(backendEvent.attendees) ? backendEvent.attendees.length : 0,
       tags: backendEvent.tags || [],
       isEnrolled: isEnrolled,
       // Handle new ticket structure with totalQuantity, availableQuantity, soldQuantity
@@ -987,13 +1081,86 @@ const Myevents = () => {
     }
   };
 
+  // Fetch enrollment counts for events (for created events management)
+  const fetchEnrollmentCounts = async (eventIds) => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      if (!token || !isTokenValid(token)) {
+        return {};
+      }
+
+      const enrollmentCounts = {};
+      
+      // Fetch enrollment count for each event
+      for (const eventId of eventIds) {
+        try {
+          const response = await fetch(`/api/enrollments/event/${eventId}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            const enrollments = data.data || data || [];
+            enrollmentCounts[eventId] = enrollments.length;
+          } else {
+            enrollmentCounts[eventId] = 0;
+          }
+        } catch (error) {
+          console.error(`Error fetching enrollment count for event ${eventId}:`, error);
+          enrollmentCounts[eventId] = 0;
+        }
+      }
+      
+      return enrollmentCounts;
+    } catch (error) {
+      console.error('Error fetching enrollment counts:', error);
+      return {};
+    }
+  };
+
+  // Transform events when userEnrollments or rawEvents change (same as Dashboard)
   // Transform events when userEnrollments or rawEvents change (same as Dashboard)
   useEffect(() => {
-    if (rawEvents.length > 0) {
-      const transformedEvents = rawEvents.map(transformEventData);
-      console.log('Transformed events with enrollment status:', transformedEvents);
-      setEvents(transformedEvents);
-    }
+    const transformAndFetchCounts = async () => {
+      if (rawEvents.length > 0) {
+        const transformedEvents = rawEvents.map(transformEventData);
+        console.log('Transformed events with enrollment status:', transformedEvents);
+        
+        // Fetch enrollment counts for created events
+        const currentUserId = localStorage.getItem("userId");
+        const createdEventIds = transformedEvents
+          .filter(event => {
+            const eventCreatorId = event.creator?._id || event.creator || event.createdBy?._id || event.createdBy;
+            return eventCreatorId === currentUserId;
+          })
+          .map(event => event.id);
+        
+        if (createdEventIds.length > 0) {
+          const enrollmentCounts = await fetchEnrollmentCounts(createdEventIds);
+          
+          // Update events with enrollment counts
+          const eventsWithCounts = transformedEvents.map(event => {
+            if (createdEventIds.includes(event.id)) {
+              return {
+                ...event,
+                enrollmentCount: enrollmentCounts[event.id] || 0
+              };
+            }
+            return event;
+          });
+          
+          setEvents(eventsWithCounts);
+        } else {
+          setEvents(transformedEvents);
+        }
+      }
+    };
+    
+    transformAndFetchCounts();
   }, [userEnrollments, rawEvents]);
 
   // Transform enrolled events data for proper display
@@ -1143,6 +1310,9 @@ const Myevents = () => {
       
       // Refresh enrolled events data to reflect changes
       await fetchUserEnrollments();
+      
+      // Also refresh the events to update enrollment counts for created events
+      await fetchEvents();
       
       const successMessage = actuallyEnrolled 
         ? '✅ Successfully unenrolled from the event!' 
@@ -1924,6 +2094,12 @@ const Myevents = () => {
 
   // Handle sending notifications to event attendees
   const handleNotifyAttendees = (event) => {
+    console.log('handleNotifyAttendees called with event:', event);
+    console.log('Event ID:', event._id || event.id);
+    console.log('Event Title:', event.title);
+    console.log('Enrollment count:', event.enrollmentCount || event.attendees?.length || 0);
+    
+    // Set the event data and open the modal
     setNotificationEvent(event);
     setShowNotificationModal(true);
     setNotificationMessage('');
@@ -1945,19 +2121,43 @@ const Myevents = () => {
         return;
       }
 
-      console.log(`Sending notification to attendees of event ${notificationEvent._id || notificationEvent.id}...`);
+      if (!notificationEvent) {
+        console.error('Notification event is null or undefined');
+        alert('Error: Event data is missing. Please try again.');
+        return;
+      }
+
+      const eventId = notificationEvent._id || notificationEvent.id;
+      if (!eventId) {
+        console.error('Event ID is null or undefined:', notificationEvent);
+        alert('Error: Event ID is missing. Please try again.');
+        return;
+      }
+
+      console.log(`Sending notification to attendees of event ${eventId}...`);
       console.log('Message:', notificationMessage);
+      console.log('Full API URL:', `/api/events/${eventId}/notifications`);
       
-      const response = await fetch(`http://localhost:3000/api/notifications/send/${notificationEvent._id || notificationEvent.id}`, {
+      // Create the request payload
+      const notificationData = {
+        title: `Event Update: ${notificationEvent.title}`,
+        message: notificationMessage,
+        type: 'info'
+      };
+      
+      console.log('Notification data:', notificationData);
+      
+      const response = await fetch(`/api/events/${eventId}/notifications`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          message: notificationMessage
-        })
+        body: JSON.stringify(notificationData)
       });
+
+      // Log the response status for debugging
+      console.log('Notification API response status:', response.status);
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -1973,14 +2173,18 @@ const Myevents = () => {
           return;
         }
         
+        // Try to get more error details from the response
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to send notification');
+        console.error('API error response:', errorData);
+        throw new Error(errorData.message || `Failed to send notification (Status: ${response.status})`);
       }
 
       const data = await response.json();
       console.log('Notification sent successfully:', data);
       
-      alert(`✅ Notification sent successfully to ${data.notification.attendeesCount} attendee${data.notification.attendeesCount !== 1 ? 's' : ''}!`);
+      // Get enrollment count for success message
+      const enrollmentCount = notificationEvent.enrollmentCount || notificationEvent.attendees?.length || 0;
+      alert(`✅ Notification sent successfully to all ${enrollmentCount} enrolled attendee${enrollmentCount !== 1 ? 's' : ''}!`);
       
       // Close modal and reset state
       setShowNotificationModal(false);
@@ -2134,6 +2338,9 @@ const Myevents = () => {
                   events={createdEvents} 
                   onEventClick={setSelectedEvent}
                   currentUserId={currentUserId}
+                  onEditEvent={handleEditEvent}
+                  onDeleteEvent={handleDeleteEvent}
+                  onNotifyAttendees={handleNotifyAttendees}
                 />
               ) : (
                 <div className="text-center py-12 bg-black/40 backdrop-blur-sm rounded-2xl border border-white/10">
@@ -2200,7 +2407,7 @@ const Myevents = () => {
         )}
         
         {/* Notification Modal */}
-        {showNotificationModal && (
+        {showNotificationModal && notificationEvent && (
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
             <div className="bg-black/90 backdrop-blur-lg rounded-2xl shadow-2xl w-full max-w-md border border-white/20">
               {/* Header */}
@@ -2210,6 +2417,7 @@ const Myevents = () => {
                 </h2>
                 <button
                   onClick={() => {
+                    console.log('Closing notification modal');
                     setShowNotificationModal(false);
                     setNotificationEvent(null);
                     setNotificationMessage('');
@@ -2222,15 +2430,13 @@ const Myevents = () => {
 
               {/* Content */}
               <div className="p-6">
-                {notificationEvent && (
-                  <div className="mb-4">
-                    <p className="text-gray-300 text-sm mb-2">Sending notification for:</p>
-                    <p className="text-white font-semibold">{notificationEvent.title}</p>
-                    <p className="text-gray-400 text-sm">
-                      {notificationEvent.attendees?.length || 0} attendee{(notificationEvent.attendees?.length || 0) !== 1 ? 's' : ''}
-                    </p>
-                  </div>
-                )}
+                <div className="mb-4">
+                  <p className="text-gray-300 text-sm mb-2">Sending notification for:</p>
+                  <p className="text-white font-semibold">{notificationEvent.title}</p>
+                  <p className="text-gray-400 text-sm">
+                    {notificationEvent.enrollmentCount || notificationEvent.attendees?.length || 0} enrolled attendee{(notificationEvent.enrollmentCount || notificationEvent.attendees?.length || 0) !== 1 ? 's' : ''}
+                  </p>
+                </div>
 
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-300 mb-2">
