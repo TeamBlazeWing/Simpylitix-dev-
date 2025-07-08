@@ -4,6 +4,27 @@ import { FaUser, FaBell, FaCheck, FaClock, FaRss } from "react-icons/fa6";
 import { TiThMenu } from "react-icons/ti";
 import { IoClose } from "react-icons/io5";
 
+// Function to check if a JWT token is valid (not expired)
+const isTokenValid = (token) => {
+  if (!token) return false;
+  
+  try {
+    // JWT tokens are made up of three parts: header.payload.signature
+    const base64Url = token.split('.')[1]; // Get the payload part
+    if (!base64Url) return false;
+    
+    // Convert base64 to JSON
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(window.atob(base64));
+    
+    // Check if token has expired
+    const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
+    return payload.exp > currentTime;
+  } catch (error) {
+    console.error("Error validating token:", error);
+    return false;
+  }
+};
 
 const MenuItems = [
   { id: 1, title: 'Home', path: '/dashboard' },
@@ -69,13 +90,18 @@ const Navbar = ({ username, onLogout }) => {
       setSubscriptionLoading(true);
       
       const token = localStorage.getItem("accessToken");
-      if (!token) {
-        console.log("No access token found");
+      if (!token || !isTokenValid(token)) {
+        console.log("No access token found or token is invalid");
         setSubscriptionStatus({
           status: 'inactive',
           message: 'Please log in to check subscription status',
           isActive: false
         });
+        
+        // If token is invalid, clean up and redirect
+        if (token && !isTokenValid(token)) {
+          handleLogout();
+        }
         return;
       }
 
@@ -124,8 +150,11 @@ const Navbar = ({ username, onLogout }) => {
       setSubscriptionLoading(true);
       
       const token = localStorage.getItem("accessToken");
-      if (!token) {
+      if (!token || !isTokenValid(token)) {
         alert("Please log in to manage your subscription");
+        if (token && !isTokenValid(token)) {
+          handleLogout();
+        }
         return;
       }
 
@@ -188,6 +217,24 @@ const Navbar = ({ username, onLogout }) => {
     if (diffDays === 2) return 'Yesterday';
     if (diffDays <= 7) return `${diffDays - 1} days ago`;
     return date.toLocaleDateString();
+  };
+
+  // Handle user logout - clears all auth data and redirects to login
+  const handleLogout = () => {
+    // Clear all auth data from localStorage
+    localStorage.removeItem("isLoggedIn");
+    localStorage.removeItem("loggedInUser");
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("userId");
+    
+    // Call the onLogout prop if it exists
+    if (typeof onLogout === 'function') {
+      onLogout();
+    }
+    
+    // Redirect to login page
+    navigate("/login");
   };
 
   // Close dropdowns when clicking outside
@@ -725,7 +772,7 @@ const Navbar = ({ username, onLogout }) => {
                   <button
                     onClick={() => {
                       setIsProfileOpen(false);
-                      onLogout();
+                      handleLogout();
                     }}
                     className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-red-900/30 transition-all duration-300 flex items-center gap-3"
                   >
@@ -800,7 +847,7 @@ const Navbar = ({ username, onLogout }) => {
                 <button
                   onClick={() => {
                     setIsOpen(false);
-                    onLogout();
+                    handleLogout();
                   }}
                   className="w-full text-left text-red-400 text-sm font-semibold hover:text-red-300 transition-colors duration-300 flex items-center gap-2 px-2 py-2 rounded hover:bg-red-900/20"
                 >

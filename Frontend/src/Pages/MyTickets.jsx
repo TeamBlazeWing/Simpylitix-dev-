@@ -23,6 +23,28 @@ import Navbar from "../components/Dashboard component/Navbar";
 import Footer from "../components/Dashboard component/Footer";
 import { ImageSlider } from "../components/Dashboard component/ImageSlider";
 
+// Function to check if a JWT token is valid (not expired)
+const isTokenValid = (token) => {
+  if (!token) return false;
+  
+  try {
+    // JWT tokens are made up of three parts: header.payload.signature
+    const base64Url = token.split('.')[1]; // Get the payload part
+    if (!base64Url) return false;
+    
+    // Convert base64 to JSON
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(window.atob(base64));
+    
+    // Check if token has expired
+    const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
+    return payload.exp > currentTime;
+  } catch (error) {
+    console.error("Error validating token:", error);
+    return false;
+  }
+};
+
 const MyTickets = () => {
   const [username, setUsername] = useState("");
   const [tickets, setTickets] = useState([]);
@@ -35,24 +57,51 @@ const MyTickets = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Check if user is logged in
     const loggedInUser = localStorage.getItem("loggedInUser");
-    if (!loggedInUser) {
+    const token = localStorage.getItem("accessToken");
+    
+    // Validate authentication
+    if (!loggedInUser || !token) {
+      console.log("No user logged in or token missing, redirecting to login");
+      clearAuthData();
       navigate("/login");
       return;
     }
+    
+    // Check if token is valid
+    if (!isTokenValid(token)) {
+      console.log("Token expired or invalid, redirecting to login");
+      clearAuthData();
+      navigate("/login", { state: { message: "Your session has expired. Please log in again." } });
+      return;
+    }
+    
     setUsername(loggedInUser);
     fetchTickets();
   }, [navigate]);
 
+  const clearAuthData = () => {
+    localStorage.removeItem("isLoggedIn");
+    localStorage.removeItem("loggedInUser");
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("userId");
+  };
+
   const fetchTickets = async () => {
     try {
       const token = localStorage.getItem("accessToken");
-      if (!token) {
+      
+      // Double-check token before making request
+      if (!token || !isTokenValid(token)) {
+        console.log("Token missing or invalid during fetchTickets");
+        clearAuthData();
         navigate("/login");
         return;
       }
 
-      const response = await fetch("http://localhost:3000/api/tickets", {
+      const response = await fetch("http://localhost:3000/api/tickets/my", {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -61,11 +110,61 @@ const MyTickets = () => {
       });
 
       const data = await response.json();
+      console.log("Tickets data from API:", data);
+
+      // Handle unauthorized response
+      if (response.status === 401) {
+        console.log("Unauthorized: Token rejected by server");
+        setError("Your session has expired. Please log in again.");
+        clearAuthData();
+        navigate("/login", { state: { message: "Your session has expired. Please log in again." } });
+        return;
+      }
 
       if (response.ok) {
-        setTickets(data.tickets || []);
+        // The response structure might be different than expected
+        // Check if data is an array directly or if it's contained in a property
+        let ticketsData = [];
+        
+        if (Array.isArray(data)) {
+          ticketsData = data;
+        } else if (data.tickets && Array.isArray(data.tickets)) {
+          ticketsData = data.tickets;
+        } else if (data.success && data.tickets && Array.isArray(data.tickets)) {
+          ticketsData = data.tickets;
+        } else {
+          // If it's not in the expected format, try to find an array in the response
+          for (const key in data) {
+            if (Array.isArray(data[key])) {
+              ticketsData = data[key];
+              break;
+            }
+          }
+        }
+        
+        console.log("Processed tickets data:", ticketsData);
+        
+        // Process tickets to add status (active/used/expired) based on dates and checkedIn
+        const processedTickets = ticketsData.map(ticket => {
+          console.log("Processing ticket:", ticket);
+          // Determine ticket status based on event date and checked-in status
+          let status = "active";
+          if (ticket.checkedIn) {
+            status = "used";
+          } else if (ticket.eventId && ticket.eventId.date && new Date(ticket.eventId.date) < new Date()) {
+            status = "expired";
+          }
+          
+          return {
+            ...ticket,
+            status
+          };
+        });
+        
+        console.log("Final processed tickets:", processedTickets);
+        setTickets(processedTickets);
         // Generate QR codes for all tickets
-        generateQRCodes(data.tickets || []);
+        generateQRCodes(processedTickets);
       } else {
         setError(data.message || "Failed to fetch tickets");
       }
@@ -81,7 +180,8 @@ const MyTickets = () => {
     const qrCodeMap = {};
     for (const ticket of ticketList) {
       try {
-        const qrData = `SimplyTix-Ticket:${ticket._id}`;
+        // Use ticketCode if available, otherwise fall back to _id
+        const qrData = `SimplyTix-Ticket:${ticket.ticketCode || ticket._id}`;
         const qrCodeDataURL = await QRCode.toDataURL(qrData, {
           width: 200,
           margin: 2,
@@ -99,9 +199,7 @@ const MyTickets = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("loggedInUser");
-    localStorage.removeItem("accessToken");
+    clearAuthData();
     navigate("/login");
   };
 
@@ -148,9 +246,9 @@ const MyTickets = () => {
     // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter(ticket =>
-        ticket.event?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        ticket.eventId?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         ticket.ticketType?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ticket.event?.location?.toLowerCase().includes(searchTerm.toLowerCase())
+        ticket.eventId?.location?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -162,11 +260,13 @@ const MyTickets = () => {
         case "oldest":
           return new Date(a.purchaseDate) - new Date(b.purchaseDate);
         case "event-date":
-          return new Date(a.event?.date) - new Date(b.event?.date);
+          return new Date(a.eventId?.date) - new Date(b.eventId?.date);
         case "price-high":
-          return (b.Price || 0) - (a.Price || 0);
+          // If we don't have a specific price on the ticket, we can't sort by price
+          return 0;
         case "price-low":
-          return (a.Price || 0) - (b.Price || 0);
+          // If we don't have a specific price on the ticket, we can't sort by price
+          return 0;
         default:
           return 0;
       }
@@ -181,7 +281,7 @@ const MyTickets = () => {
       active: tickets.filter(t => t.status?.toLowerCase() === "active").length,
       cancelled: tickets.filter(t => t.status?.toLowerCase() === "cancelled").length,
       expired: tickets.filter(t => t.status?.toLowerCase() === "expired").length,
-      used: tickets.filter(t => t.status?.toLowerCase() === "used").length,
+      used: tickets.filter(t => t.status?.toLowerCase() === "used" || t.checkedIn).length,
     };
     return stats;
   };
@@ -193,6 +293,15 @@ const MyTickets = () => {
 
     try {
       const token = localStorage.getItem("accessToken");
+      
+      // Validate token before making request
+      if (!token || !isTokenValid(token)) {
+        console.log("Token missing or invalid during cancelTicket");
+        clearAuthData();
+        navigate("/login");
+        return;
+      }
+      
       const response = await fetch(`http://localhost:3000/api/tickets/${ticketId}/cancel`, {
         method: "PUT",
         headers: {
@@ -201,11 +310,25 @@ const MyTickets = () => {
         },
       });
 
+      // Handle unauthorized response
+      if (response.status === 401) {
+        console.log("Unauthorized: Token rejected by server during cancel ticket");
+        clearAuthData();
+        navigate("/login", { state: { message: "Your session has expired. Please log in again." } });
+        return;
+      }
+
       const data = await response.json();
 
       if (response.ok) {
-        // Refresh tickets
-        fetchTickets();
+        // Update the ticket status locally
+        setTickets(prev => 
+          prev.map(ticket => 
+            ticket._id === ticketId 
+              ? { ...ticket, status: 'cancelled' } 
+              : ticket
+          )
+        );
         alert("Ticket cancelled successfully!");
       } else {
         alert(data.message || "Failed to cancel ticket");
@@ -221,7 +344,8 @@ const MyTickets = () => {
     if (!qrCodeDataURL) return;
 
     const link = document.createElement('a');
-    link.download = `ticket-${ticket._id.slice(-8)}-qr.png`;
+    const ticketId = ticket.ticketCode || ticket._id?.slice(-8) || 'ticket';
+    link.download = `ticket-${ticketId}-qr.png`;
     link.href = qrCodeDataURL;
     document.body.appendChild(link);
     link.click();
@@ -229,12 +353,12 @@ const MyTickets = () => {
   };
 
   const shareTicket = async (ticket) => {
-    const ticketInfo = `🎫 My Ticket for ${ticket.event?.title}\n📅 ${new Date(ticket.event?.date).toLocaleDateString()}\n📍 ${ticket.event?.location}\n💰 $${ticket.Price}\n\nTicket ID: ${ticket._id}`;
+    const ticketInfo = `🎫 My Ticket for ${ticket.eventId?.title || 'Event'}\n📅 ${ticket.eventId?.date ? new Date(ticket.eventId.date).toLocaleDateString() : 'Date not available'}\n📍 ${ticket.eventId?.location || 'Location not available'}\n🎟️ ${ticket.ticketType || 'General'}\n\nTicket Code: ${ticket.ticketCode || ticket._id || 'Unknown'}`;
     
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `SimplyTix - ${ticket.event?.title}`,
+          title: `SimplyTix - ${ticket.eventId?.title || 'Event Ticket'}`,
           text: ticketInfo,
           url: window.location.origin
         });
@@ -418,8 +542,8 @@ const MyTickets = () => {
                   {/* Ticket Header */}
                   <div className="relative h-48 overflow-hidden">
                     <img
-                      src={ticket.event?.imageUrl || "/api/placeholder/400/200"}
-                      alt={ticket.event?.title}
+                      src={ticket.eventId?.imageUrl || "https://via.placeholder.com/400x200?text=Event+Image"}
+                      alt={ticket.eventId?.title || "Event"}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
@@ -432,19 +556,14 @@ const MyTickets = () => {
 
                     {/* Ticket Type Badge */}
                     <div className="absolute top-4 left-4 px-3 py-1 bg-purple-500/90 backdrop-blur-sm text-white text-xs font-semibold rounded-full">
-                      {ticket.ticketType}
-                    </div>
-
-                    {/* Price */}
-                    <div className="absolute bottom-4 right-4 text-right">
-                      <div className="text-2xl font-bold text-white">${ticket.Price}</div>
+                      {ticket.ticketType || "General"}
                     </div>
                   </div>
 
                   {/* Ticket Content */}
                   <div className="p-6">
                     <h3 className="text-xl font-bold text-white mb-2 group-hover:text-purple-300 transition-colors">
-                      {ticket.event?.title}
+                      {ticket.eventId?.title || "Untitled Event"}
                     </h3>
 
                     {/* Event Details */}
@@ -452,24 +571,24 @@ const MyTickets = () => {
                       <div className="flex items-center gap-3 text-gray-300">
                         <FaCalendarDays className="text-blue-400 flex-shrink-0" />
                         <span className="text-sm">
-                          {new Date(ticket.event?.date).toLocaleDateString('en-US', {
+                          {ticket.eventId?.date ? new Date(ticket.eventId.date).toLocaleDateString('en-US', {
                             weekday: 'long',
                             year: 'numeric',
                             month: 'long',
                             day: 'numeric'
-                          })}
+                          }) : 'Date not available'}
                         </span>
                       </div>
                       
                       <div className="flex items-center gap-3 text-gray-300">
                         <FaLocationDot className="text-green-400 flex-shrink-0" />
-                        <span className="text-sm truncate">{ticket.event?.location}</span>
+                        <span className="text-sm truncate">{ticket.eventId?.location || 'Location not available'}</span>
                       </div>
 
                       <div className="flex items-center gap-3 text-gray-300">
                         <FaClock className="text-yellow-400 flex-shrink-0" />
                         <span className="text-sm">
-                          Purchased: {new Date(ticket.purchaseDate).toLocaleDateString()}
+                          Purchased: {ticket.purchaseDate ? new Date(ticket.purchaseDate).toLocaleDateString() : 'Date not available'}
                         </span>
                       </div>
                     </div>
@@ -481,7 +600,7 @@ const MyTickets = () => {
                           <FaQrcode className="text-purple-400" />
                           <span className="text-sm font-medium text-white">QR Code</span>
                         </div>
-                        <div className="text-xs text-gray-400">ID: {ticket._id.slice(-8)}</div>
+                        <div className="text-xs text-gray-400">ID: {ticket.ticketCode || ticket._id?.slice(-8) || 'Unknown'}</div>
                       </div>
                       
                       <div className="flex items-center gap-4">
@@ -489,7 +608,7 @@ const MyTickets = () => {
                           {qrCodes[ticket._id] ? (
                             <img 
                               src={qrCodes[ticket._id]} 
-                              alt={`QR Code for ticket ${ticket._id.slice(-8)}`}
+                              alt={`QR Code for ticket ${ticket.ticketCode || ticket._id?.slice(-8) || 'Unknown'}`}
                               className="w-20 h-20"
                             />
                           ) : (

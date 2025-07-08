@@ -14,7 +14,7 @@ exports.buyTickets = async (eventId, tickets, method, userId) => {
 
     // Validate ticket availability before processing payment
     const ticketPurchases = tickets.map(ticket => ({
-      ticketName: ticket.name,
+      ticketName: ticket.type, // Use ticket.type as received from frontend
       quantity: ticket.quantity
     }));
     
@@ -154,6 +154,7 @@ const processPayment = async (method, amount, paymentId) => {
   try {
     switch (method) {
       case 'card':
+      case 'credit': // Handle both 'card' and 'credit' from frontend
         return await processCardPayment(amount, paymentId);
       case 'mobile':
         return await processMobilePayment(amount, paymentId);

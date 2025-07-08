@@ -133,4 +133,17 @@ router.get('/history', auth, paymentController.getPaymentHistory);
  */
 router.post('/verify/:paymentId', auth, paymentController.verifyPayment);
 
+// Add a debug endpoint before the tickets route
+router.post('/debug', auth, (req, res) => {
+  console.log('=== Debug Endpoint ===');
+  console.log('User:', req.user);
+  console.log('Body:', req.body);
+  console.log('Headers:', req.headers);
+  res.json({ 
+    message: 'Debug endpoint working',
+    user: req.user,
+    body: req.body 
+  });
+});
+
 module.exports = router;

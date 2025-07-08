@@ -79,7 +79,11 @@ exports.updateTicketQuantities = async (eventId, ticketPurchases) => {
 
   // Update ticket quantities
   for (const purchase of ticketPurchases) {
-    const ticket = event.tickets.find(t => t.name === purchase.ticketName);
+    // Try to find the ticket by name OR type
+    const ticket = event.tickets.find(t => 
+      t.name === purchase.ticketName || t.type === purchase.ticketName
+    );
+    
     if (!ticket) {
       throw new Error(`Ticket type "${purchase.ticketName}" not found`);
     }
@@ -104,7 +108,11 @@ exports.validateTicketAvailability = async (eventId, ticketPurchases) => {
   }
 
   for (const purchase of ticketPurchases) {
-    const ticket = event.tickets.find(t => t.name === purchase.ticketName);
+    // Try to find the ticket by name OR type
+    const ticket = event.tickets.find(t => 
+      t.name === purchase.ticketName || t.type === purchase.ticketName
+    );
+    
     if (!ticket) {
       throw new Error(`Ticket type "${purchase.ticketName}" not found`);
     }

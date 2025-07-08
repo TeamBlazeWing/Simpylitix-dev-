@@ -2,12 +2,37 @@ const paymentService = require('../services/payment.service');
 
 exports.buyTickets = async (req, res) => {
   try {
+    console.log('=== Buy Tickets Request ===');
+    console.log('Event ID:', req.params.eventId);
+    console.log('User ID:', req.user.id);
+    console.log('Request Body:', JSON.stringify(req.body, null, 2));
+    console.log('Content-Type:', req.headers['content-type']);
+    console.log('Authorization Header:', req.headers.authorization ? 'Present' : 'Missing');
+
     const { tickets, method } = req.body;
     const userId = req.user.id;
     const eventId = req.params.eventId;
+    
+    // Additional validation
+    if (!tickets || !Array.isArray(tickets) || tickets.length === 0) {
+      console.log('❌ Invalid tickets array:', tickets);
+      return res.status(400).json({ error: 'Valid tickets array is required' });
+    }
+    
+    if (!method) {
+      console.log('❌ Missing payment method');
+      return res.status(400).json({ error: 'Payment method is required' });
+    }
+    
+    // Log each ticket for debugging
+    tickets.forEach((ticket, index) => {
+      console.log(`Ticket ${index}:`, ticket);
+    });
+    
+    console.log('✅ Validation passed, calling buyTickets service...');
     const ticketsData = await paymentService.buyTickets(eventId, tickets, method, userId);
 
-    console.log('Tickets purchased:', ticketsData);
+    console.log('✅ Tickets purchased successfully:', ticketsData);
 
     res.status(200).json({
       success: true,
@@ -15,8 +40,9 @@ exports.buyTickets = async (req, res) => {
       data: ticketsData
     });
   } catch (error) {
-    console.error('Payment error:', error);
-    res.status(500).json({ error: 'Failed to process payment' });
+    console.error('❌ Payment error in controller:', error.message);
+    console.error('❌ Stack trace:', error.stack);
+    res.status(500).json({ error: error.message || 'Failed to process payment' });
   }
 }
 

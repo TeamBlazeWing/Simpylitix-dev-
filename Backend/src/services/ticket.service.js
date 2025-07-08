@@ -10,7 +10,7 @@ exports.generateTickets = async (paymentId, userId, eventId, tickets) => {
       paymentId: paymentId,
       eventId: eventId,
       userId: userId,
-      ticketType: ticket.type,
+      ticketType: ticket.type, // Use ticket.type as sent from frontend
       purchaseDate: new Date()
     });
     return newTicket.save();
@@ -27,6 +27,6 @@ exports.getMyTickets = async (userId) => {
     throw new Error('User not found');
   }
 
-  const tickets = await Ticket.find({ userId: userId }).populate('eventId', 'name date location');
+  const tickets = await Ticket.find({ userId: userId }).populate('eventId', 'title date location imageUrl description type');
   return tickets;
 };  

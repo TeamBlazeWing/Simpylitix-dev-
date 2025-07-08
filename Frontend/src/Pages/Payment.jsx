@@ -39,6 +39,19 @@ const Payment = () => {
     const eventData = localStorage.getItem('selectedEvent');
     if (eventData) {
       const event = JSON.parse(eventData);
+      console.log('Loaded event from localStorage:', event);
+      console.log('Event ID fields:', { _id: event._id, id: event.id });
+      
+      // Check if tickets have type field, if not, add it
+      if (event.tickets && event.tickets.length > 0) {
+        event.tickets.forEach(ticket => {
+          if (!ticket.type && ticket.name) {
+            ticket.type = ticket.name;
+          }
+        });
+        console.log('Updated tickets with type field:', event.tickets);
+      }
+      
       setSelectedEvent(event);
       
       // Initialize ticket selections
@@ -99,18 +112,15 @@ const Payment = () => {
         if (selectedEvent.tickets && selectedEvent.tickets[index]) {
           const ticket = selectedEvent.tickets[index];
           summary.push({
-            name: ticket.name,
+            type: ticket.type || ticket.name, // Use 'type' if available, fallback to 'name'
             quantity,
-            price: ticket.price,
-            total: ticket.price * quantity
+            price: ticket.price
           });
         } else {
-          // Fallback for events without tickets array
           summary.push({
-            name: 'General Admission',
+            type: 'General Admission',
             quantity,
-            price: selectedEvent.price,
-            total: selectedEvent.price * quantity
+            price: selectedEvent.price
           });
         }
       }
@@ -302,38 +312,48 @@ const Payment = () => {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-      // Make API calls for each ticket type selected
-      const purchasePromises = [];
-      ticketSummary.forEach(item => {
-        const purchasePromise = fetch(`/api/buyticket/${selectedEvent.id}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            ticketType: item.name,
-            quantity: item.quantity
-          })
-        });
-        purchasePromises.push(purchasePromise);
+      // Make API call to purchase tickets
+      const eventId = selectedEvent._id || selectedEvent.id;
+      console.log('Selected Event Object:', selectedEvent);
+      console.log('Event ID extracted:', eventId);
+      console.log('Event ID type:', typeof eventId);
+      
+      if (!eventId) {
+        console.error('Event ID is missing from selectedEvent:', selectedEvent);
+        throw new Error('Event ID is missing. Please select an event again.');
+      }
+
+      console.log('Making payment request for event:', eventId);
+      console.log('Ticket summary:', ticketSummary);
+      
+      // Debug: Check ticket data matches what backend expects
+      ticketSummary.forEach((ticket, i) => {
+        console.log(`Ticket ${i}: type=${ticket.type}, quantity=${ticket.quantity}, price=${ticket.price}`);
+      });
+      
+      // Map frontend payment method to backend expected values
+      const backendPaymentMethod = paymentMethod === 'credit' ? 'card' : paymentMethod;
+      
+      const response = await fetch(`/api/payments/tickets/${eventId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          tickets: ticketSummary,
+          method: backendPaymentMethod
+        })
       });
 
-      // Wait for all purchases to complete
-      const responses = await Promise.all(purchasePromises);
+      const result = await response.json();
       
-      // Check if all purchases were successful
-      const results = await Promise.all(
-        responses.map(async (response, index) => {
-          const data = await response.json();
-          if (!response.ok) {
-            throw new Error(`Failed to purchase ${ticketSummary[index].name}: ${data.message}`);
-          }
-          return data;
-        })
-      );
+      if (!response.ok) {
+        console.log('❌ API Error Response:', result);
+        throw new Error(result.message || result.error || 'Payment failed');
+      }
 
-      console.log('All tickets purchased successfully:', results);
+      console.log('Tickets purchased successfully:', result);
       
       // Clear selected event from localStorage
       localStorage.removeItem('selectedEvent');
@@ -342,7 +362,8 @@ const Payment = () => {
       const ticketText = totalTickets === 1 ? 'ticket' : 'tickets';
       let ticketBreakdown = '';
       ticketSummary.forEach(item => {
-        ticketBreakdown += `\n• ${item.quantity}x ${item.name} @ $${item.price} = $${item.total}`;
+        const itemTotal = item.price * item.quantity;
+        ticketBreakdown += `\n• ${item.quantity}x ${item.type} @ $${item.price} = $${itemTotal}`;
       });
       
       const successMessage = `🎉 Purchase Successful!\n\n` +
@@ -632,7 +653,7 @@ const Payment = () => {
                                   <h4 className="font-semibold text-lg">{ticket.name}</h4>
                                   <p className="text-green-400 font-bold">${ticket.price}</p>
                                   <p className="text-sm text-gray-400">
-                                    Available: {ticket.quantity - ticket.sold} / {ticket.quantity}
+                                    Available: {ticket.availableQuantity || ticket.quantity - (ticket.soldQuantity || ticket.sold || 0)} / {ticket.totalQuantity || ticket.quantity}
                                   </p>
                                 </div>
                                 <div className="flex items-center space-x-2">
@@ -650,7 +671,7 @@ const Payment = () => {
                                   <button
                                     type="button"
                                     onClick={() => handleTicketQuantityChange(index, (ticketSelections[index] || 0) + 1)}
-                                    disabled={(ticketSelections[index] || 0) >= (ticket.quantity - ticket.sold)}
+                                    disabled={(ticketSelections[index] || 0) >= (ticket.availableQuantity || ticket.quantity - (ticket.soldQuantity || ticket.sold || 0))}
                                     className="w-8 h-8 rounded-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold flex items-center justify-center transition-colors"
                                   >
                                     +
@@ -1101,8 +1122,8 @@ const Payment = () => {
                         {/* Ticket breakdown */}
                         {getTicketSummary().map((item, index) => (
                           <div key={index} className="flex justify-between">
-                            <span>{item.name} ({item.quantity}x @ ${item.price})</span>
-                            <span>${item.total}</span>
+                            <span>{item.type} ({item.quantity}x @ ${item.price})</span>
+                            <span>${item.price * item.quantity}</span>
                           </div>
                         ))}
                         
