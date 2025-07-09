@@ -2,12 +2,12 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import Signup from './Pages/Signup'
 import Login from './Pages/Login'
 import Dashboard from './Pages/Dashboard'
-import FogetPassword from './components/FogetPassword/FogetPassword'
+import FogetPassword from './Pages/FogetPassword'
 import About from './Pages/Aboutus'
 import Contactus from './Pages/Contactus'
 import Payment from './Pages/Payment' 
 import MyTickets from './Pages/MyTickets'
-import Myevents from './Pages/Myevents' 
+import Myevents from './Pages/Myevents'
 
 
 function App() {
