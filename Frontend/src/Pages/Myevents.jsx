@@ -478,8 +478,108 @@ const EventModal = ({ event, onClose, onEnroll, enrolling, currentUserId }) => {
   );
 };
 
-// Event Cards Component
-const EventCards = ({ events, onEventClick, currentUserId, onEditEvent, onDeleteEvent, onNotifyAttendees }) => (
+const EventCardsforCreated = ({
+  events,
+  onEventClick,
+  currentUserId,
+  onEditEvent,
+  onDeleteEvent,
+  onNotifyAttendees
+}) => {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8 px-4">
+      {events.map((event, idx) => {
+        const isCreator = event.creator?._id === currentUserId || event.creator === currentUserId || 
+                          event.createdBy?._id === currentUserId || event.createdBy === currentUserId;
+
+        const enrollmentCount = event.attendees?.length || event.enrollmentCount || 0;
+
+        return (
+          <div
+            key={idx}
+            className="bg-gray-800 rounded-lg shadow-xl overflow-hidden"
+          >
+            <img src={event.imageUrl} alt={event.title} className="h-48 w-full object-cover" />
+            <div className="p-4">
+              <h2 className="text-white text-lg font-bold">{event.title}</h2>
+              <p className="text-gray-400 text-sm">{event.location}</p>
+
+              {isCreator && (
+                <div className="mt-4 flex flex-col gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onNotifyAttendees && onNotifyAttendees(event);
+                    }}
+                    className="flex items-center justify-center bg-yellow-500 hover:bg-yellow-600 text-white py-2 rounded"
+                  >
+                    <FaBell className="mr-2" /> Notify All ({enrollmentCount})
+                  </button>
+
+                  <div className="flex gap-2">
+                    <button
+                      disabled={enrollmentCount > 0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (enrollmentCount > 0) {
+                          alert(`Cannot edit event with ${enrollmentCount} enrolled attendee${enrollmentCount > 1 ? 's' : ''}.`);
+                          return;
+                        }
+                        onEditEvent && onEditEvent(event);
+                      }}
+                      className={`flex-1 flex items-center justify-center py-2 rounded ${
+                        enrollmentCount > 0
+                          ? 'bg-gray-500 cursor-not-allowed'
+                          : 'bg-blue-500 hover:bg-blue-600 text-white'
+                      }`}
+                    >
+                      <FaEdit className="mr-2" /> Edit
+                    </button>
+
+                    <button
+                      disabled={enrollmentCount > 0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (enrollmentCount > 0) {
+                          alert(`Cannot delete event with ${enrollmentCount} enrolled attendee${enrollmentCount > 1 ? 's' : ''}.`);
+                          return;
+                        }
+                        onDeleteEvent && onDeleteEvent(event);
+                      }}
+                      className={`flex-1 flex items-center justify-center py-2 rounded ${
+                        enrollmentCount > 0
+                          ? 'bg-gray-500 cursor-not-allowed'
+                          : 'bg-red-500 hover:bg-red-600 text-white'
+                      }`}
+                    >
+                      <FaTrash className="mr-2" /> Delete
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEventClick && onEventClick(event);
+                }}
+                className="w-full mt-4 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded"
+              >
+                View Details
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+
+
+
+
+const EventCardsforEnroll = ({ events, onEventClick, currentUserId, onEditEvent, onDeleteEvent, onNotifyAttendees }) => (
   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8 px-4">
     {events.map((event, idx) => {
       // Use the isEnrolled property from the event data
@@ -1329,22 +1429,22 @@ const Myevents = () => {
 
   // Create Event Form Component
   const CreateEventForm = ({ isOpen, onClose, onEventCreated, editingEvent = null }) => {
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    type: 'conference',
-    date: '',
-    time: '',
-    location: '',
-    imageUrl: '',
-    district: '',
-    maxAttendees: 100,
-    tags: '',
-    tickets: [
-      { name: 'General Admission', price: 0, quantity: 100 }
-    ]
-  });
-    
+    const [formData, setFormData] = useState({
+      title: '',
+      description: '',
+      type: 'conference',
+      date: '',
+      time: '',
+      location: '',
+      imageUrl: '',
+      district: '',
+      maxAttendees: 100,
+      tags: '',
+      tickets: [
+        { name: 'General Admission', price: 0, quantity: 100 }
+      ]
+    });
+
     const [loading, setLoading] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
     const [selectedImage, setSelectedImage] = useState(null);
@@ -1353,42 +1453,47 @@ const Myevents = () => {
     const eventTypes = ['workshop', 'seminar', 'conference', 'meetup', 'volunteer', 'music', 'art', 'sports', 'business', 'other'];
 
     // Initialize form data with editing event if provided
-    useEffect(() => {
-      if (editingEvent) {
-        setFormData({
-          title: editingEvent.title || '',
-          description: editingEvent.description || '',
-          type: editingEvent.type || 'conference',
-          date: editingEvent.date ? new Date(editingEvent.date).toISOString().slice(0, 16) : '',
-          time: editingEvent.time || '',
-          location: editingEvent.location || '',
-          imageUrl: editingEvent.imageUrl || '',
-          district: editingEvent.district || '',
-          maxAttendees: editingEvent.maxAttendees || 100,
-          tags: editingEvent.tags ? editingEvent.tags.join(', ') : '',
-          tickets: editingEvent.tickets && editingEvent.tickets.length > 0 ? editingEvent.tickets : [
-            { name: 'General Admission', price: 0, quantity: 100 }
-          ]
-        });
-      } else {
-        setFormData({
-          title: '',
-          description: '',
-          type: 'conference',
-          date: '',
-          time: '',
-          location: '',
-          imageUrl: '',
-          district: '',
-          maxAttendees: 100,
-          tags: '',
-          tickets: [
-            { name: 'General Admission', price: 0, quantity: 100 }
-          ]
-        });
-      }
+  useEffect(() => {
+    if (editingEvent) {
+      setFormData({
+        title: editingEvent.title || '',
+        description: editingEvent.description || '',
+        type: editingEvent.type || 'conference',
+        date: editingEvent.date ? new Date(editingEvent.date).toISOString().slice(0, 16) : '',
+        time: editingEvent.time || '',
+        location: editingEvent.location || '',
+        imageUrl: editingEvent.imageUrl || '',
+        district: editingEvent.district || '',
+        maxAttendees: editingEvent.maxAttendees || 100,
+        tags: Array.isArray(editingEvent.tags) ? editingEvent.tags.join(', ') : (editingEvent.tags || ''),
+        tickets: Array.isArray(editingEvent.tickets) && editingEvent.tickets.length > 0
+          ? editingEvent.tickets.map(ticket => ({
+              name: ticket.name || '',
+              price: ticket.price || 0,
+              quantity: ticket.totalQuantity || ticket.quantity || 100
+            }))
+          : [{ name: 'General Admission', price: 0, quantity: 100 }]
+      });
       setSelectedImage(null);
-    }, [editingEvent]);
+    } else {
+      setFormData({
+        title: '',
+        description: '',
+        type: 'conference',
+        date: '',
+        time: '',
+        location: '',
+        imageUrl: '',
+        district: '',
+        maxAttendees: 100,
+        tags: '',
+        tickets: [
+          { name: 'General Admission', price: 0, quantity: 100 }
+        ]
+      });
+      setSelectedImage(null);
+    }
+  }, [editingEvent]);
 
     const handleInputChange = (e) => {
       const { name, value } = e.target;
@@ -2334,7 +2439,7 @@ const Myevents = () => {
                   <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
                 </div>
               ) : createdEvents.length > 0 ? (
-                <EventCards 
+                <EventCardsforCreated 
                   events={createdEvents} 
                   onEventClick={setSelectedEvent}
                   currentUserId={currentUserId}
@@ -2367,7 +2472,7 @@ const Myevents = () => {
                   <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
                 </div>
               ) : transformedEnrolledEvents.length > 0 ? (
-                <EventCards 
+                <EventCardsforEnroll 
                   events={transformedEnrolledEvents} 
                   onEventClick={setSelectedEvent}
                   currentUserId={currentUserId}
