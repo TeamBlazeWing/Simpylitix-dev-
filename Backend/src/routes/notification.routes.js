@@ -99,4 +99,10 @@ router.post('/:eventId/notifications', auth, notificationController.createNotifi
  */
 router.delete('/notifications/:notificationId', auth, notificationController.deleteNotification);
 
+// Fetch user's notifications
+router.get('/my', auth, notificationController.getUserNotifications);
+
+// Mark a single notification as read
+router.put('/:notificationId/read', auth, notificationController.markAsRead);
+
 module.exports = router;

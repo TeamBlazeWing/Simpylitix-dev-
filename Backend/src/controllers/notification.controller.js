@@ -43,7 +43,7 @@ exports.markAsRead = async (req, res, next) => {
     // Implementation depends on how you're tracking read status
 
     // Example implementation using a simple approach (modifying the notification)
-    notification.isRead = true;
+    notification.read = true;
     await notification.save();
     
     return res.status(200).json({

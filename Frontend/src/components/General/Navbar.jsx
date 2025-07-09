@@ -62,47 +62,41 @@ const Navbar = ({ username, onLogout }) => {
 
   // Fetch notifications
   const fetchNotifications = async () => {
-    try {
-      setLoading(true);
-      
-      const token = localStorage.getItem("accessToken");
-      if (!token || !isTokenValid(token)) {
-        console.log("No access token found or token is invalid");
-        if (token && !isTokenValid(token)) {
-          handleLogout();
-        }
-        return;
-      }
-      
-      const response = await fetch('http://localhost:3000/api/notifications', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      // Handle unauthorized response
-      if (response.status === 401) {
-        console.log("Unauthorized: Token rejected by server");
-        handleLogout();
-        return;
-      }
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      setNotifications(data);
-      
-    } catch (error) {
-      console.error("Error fetching notifications:", error);
-      // Keep the existing notifications to avoid flashing empty state on error
-    } finally {
-      setLoading(false);
+  try {
+    setLoading(true);
+
+    const token = localStorage.getItem("accessToken");
+    if (!token || !isTokenValid(token)) {
+      handleLogout();
+      return;
     }
-  };
+
+    const response = await fetch('/api/notifications/my', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (response.status === 401) {
+      handleLogout();
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    setNotifications(data);
+
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Mark notification as read
   const markAsRead = async (notificationId) => {
@@ -133,9 +127,10 @@ const Navbar = ({ username, onLogout }) => {
       }
       
       // Update local state to reflect the change
-      setNotifications(prev => 
-        prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
-      );
+      setNotifications(prev =>
+  prev.map(n => n._id === notificationId ? { ...n, read: true } : n)
+);
+
       
     } catch (error) {
       console.error("Error marking notification as read:", error);
@@ -774,12 +769,13 @@ const Navbar = ({ username, onLogout }) => {
                               </div>
                               {!notification.read && (
                                 <button
-                                  onClick={() => markAsRead(notification.id)}
-                                  className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition-colors duration-200 flex-shrink-0"
-                                >
-                                  <FaCheck className="text-xs" />
-                                  Mark as read
-                                </button>
+  onClick={() => markAsRead(notification._id)}
+  className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition-colors duration-200 flex-shrink-0"
+>
+  <FaCheck className="text-xs" />
+  Mark as read
+</button>
+
                               )}
                             </div>
                           </div>
