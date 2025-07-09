@@ -61,7 +61,7 @@ const Navbar = ({ username, onLogout }) => {
   const isActivePath = (path) => location.pathname === path;
 
   // Fetch notifications
-  const fetchNotifications = async () => {
+const fetchNotifications = async () => {
   try {
     setLoading(true);
 
@@ -97,6 +97,7 @@ const Navbar = ({ username, onLogout }) => {
     setLoading(false);
   }
 };
+
 
   // Mark notification as read
   const markAsRead = async (notificationId) => {
