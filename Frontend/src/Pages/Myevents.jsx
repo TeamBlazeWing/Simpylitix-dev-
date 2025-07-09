@@ -610,16 +610,30 @@ const Myevents = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black flex flex-col">
       <Navbar username={username} onLogout={handleLogout} />
-      <main className="flex-1 py-8">
+      <main className="flex-1 py-8 bg-gradient-to-br from-black via-gray-900/80 to-gray-950 min-h-screen">
         <div className="w-full max-w-6xl mx-auto mb-8 px-4">
-          <div className="text-center">
-            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-green-400 via-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">
-              My Enrolled Events
+          <div className="text-center relative">
+            <h1 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-green-400 via-blue-400 to-purple-400 bg-clip-text text-transparent mb-4 drop-shadow-lg tracking-tight animate-fade-in">
+              <span className="inline-block animate-gradient-x">My Events</span>
             </h1>
-            <p className="text-gray-300 text-lg max-w-2xl mx-auto">
+            <p className="text-gray-300 text-lg max-w-2xl mx-auto mb-2 animate-fade-in delay-100">
               View and manage all the events you've enrolled in. Keep track of your upcoming events and buy tickets when needed.
             </p>
-            <div className="w-24 h-1 bg-gradient-to-r from-green-500 to-blue-500 mx-auto rounded-full mt-4"></div>
+            <div className="flex justify-center mt-4">
+              <button
+                onClick={() => setShowCreateForm(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold text-lg animate-fade-in"
+              >
+                <FaPlus className="text-xl" />
+                Create Event
+              </button>
+            </div>
+            <div className="w-24 h-1 bg-gradient-to-r from-green-500 to-blue-500 mx-auto rounded-full mt-4 animate-pulse"></div>
+            <div className="absolute top-0 right-0 flex gap-2">
+              <span className="inline-block w-3 h-3 bg-green-400 rounded-full animate-pulse"></span>
+              <span className="inline-block w-3 h-3 bg-blue-400 rounded-full animate-pulse"></span>
+              <span className="inline-block w-3 h-3 bg-purple-400 rounded-full animate-pulse"></span>
+            </div>
           </div>
         </div>
 
@@ -656,22 +670,33 @@ const Myevents = () => {
         )}
 
         {!loading && !error && (
-          <div className="container mx-auto px-4 py-8">
-            <EnrollmentStats
-              enrolledEventsCount={transformedEnrolledEvents.length}
-              totalPrice={totalPrice}
-            />
+            <div className="container mx-auto px-4 py-8">
+              <div className="flex flex-col md:flex-row justify-center items-center gap-8 mb-12 animate-fade-in">
+                {/* Created Events Card */}
+                <div className="relative group bg-gradient-to-br from-purple-700/80 via-blue-700/60 to-purple-900/80 rounded-2xl px-10 py-8 shadow-2xl border border-purple-400/30 text-center transition-transform duration-300 hover:scale-105 hover:shadow-purple-500/30">
+                  <div className="absolute -top-4 -right-4 bg-gradient-to-tr from-purple-400 to-blue-400 rounded-full w-10 h-10 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform animate-pulse">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                  </div>
+                  <div className="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-blue-300 to-purple-400 mb-2 drop-shadow-lg animate-gradient-x">
+                    {createdEvents.length}
+                  </div>
+                  <div className="text-white text-lg font-semibold tracking-wide uppercase opacity-90">Created Events</div>
+                </div>
+                {/* Enrolled Events Card */}
+                <div className="relative group bg-gradient-to-br from-green-700/80 via-blue-700/60 to-green-900/80 rounded-2xl px-10 py-8 shadow-2xl border border-green-400/30 text-center transition-transform duration-300 hover:scale-105 hover:shadow-green-500/30">
+                  <div className="absolute -top-4 -right-4 bg-gradient-to-tr from-green-400 to-blue-400 rounded-full w-10 h-10 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform animate-pulse">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none" /><path strokeLinecap="round" strokeLinejoin="round" d="M8 12l2 2 4-4" /></svg>
+                  </div>
+                  <div className="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-green-300 via-blue-300 to-green-400 mb-2 drop-shadow-lg animate-gradient-x">
+                    {transformedEnrolledEvents.length}
+                  </div>
+                  <div className="text-white text-lg font-semibold tracking-wide uppercase opacity-90">Enrolled Events</div>
+                </div>
+              </div>
 
             <div className="mb-12">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-white">Your Created Events</h2>
-                <button
-                  onClick={() => setShowCreateForm(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                >
-                  <FaPlus className="text-sm" />
-                  Create Event
-                </button>
+                <h2 className="text-2xl font-bold text-white bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent drop-shadow-lg">Your Created Events</h2>
               </div>
 
               {loading ? (
@@ -688,15 +713,15 @@ const Myevents = () => {
                   onNotifyAttendees={handleNotifyAttendees}
                 />
               ) : (
-                <div className="text-center py-12 bg-black/40 backdrop-blur-sm rounded-2xl border border-white/10">
-                  <FaCalendarPlus className="text-6xl text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-white mb-2">No Created Events</h3>
-                  <p className="text-gray-400">
+                <div className="text-center py-12 bg-gradient-to-br from-black/80 via-purple-900/40 to-blue-900/40 backdrop-blur-sm rounded-2xl border border-white/10 shadow-xl animate-fade-in">
+                  <FaCalendarPlus className="text-6xl text-purple-400 mx-auto mb-4 animate-bounce" />
+                  <h3 className="text-2xl font-bold text-white mb-2 bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">No Created Events</h3>
+                  <p className="text-gray-400 mb-2">
                     You haven't created any events yet. Click the Create Event button to get started!
                   </p>
                   <button
                     onClick={() => setShowCreateForm(true)}
-                    className="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    className="mt-4 px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold text-base animate-fade-in"
                   >
                     Create Your First Event
                   </button>
@@ -705,7 +730,7 @@ const Myevents = () => {
             </div>
 
             <div className="mb-12">
-              <h2 className="text-2xl font-bold text-white mb-6">Your Enrolled Events</h2>
+              <h2 className="text-2xl font-bold text-white mb-6 bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent drop-shadow-lg">Your Enrolled Events</h2>
               {loading ? (
                 <div className="flex justify-center items-center py-12">
                   <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>

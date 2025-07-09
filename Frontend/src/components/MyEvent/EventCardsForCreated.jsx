@@ -19,7 +19,7 @@ const EventCardsForCreated = ({
         return (
           <div
             key={idx}
-            className="relative group bg-gradient-to-br from-black/80 via-purple-900/80 to-gray-900/80 rounded-2xl shadow-2xl overflow-hidden border border-purple-500/20 hover:border-purple-400/40 transition-all duration-300"
+            className="relative group bg-gradient-to-br from-black/80 via-gray-800/80 to-gray-900/80 rounded-2xl shadow-2xl overflow-hidden border border-purple-500/20 hover:border-purple-400/40 transition-all duration-300"
           >
             <div className="relative h-48 w-full overflow-hidden">
               <img
