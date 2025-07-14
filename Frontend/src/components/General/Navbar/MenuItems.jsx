@@ -1,3 +1,6 @@
+
+import { FaUser } from "react-icons/fa";
+import { IoClose } from "react-icons/io5";
 import { MenuItems } from "./constants";
 import "./styles.css";
 
@@ -36,7 +39,7 @@ const MenuItemsComponent = ({ isOpen, setIsOpen, location, username, handleLogou
         ))}
       </div>
       {isOpen && (
-        <div className="md:hidden bg-gradient-to-b from-black/95 via-purple-900/30 to-black/95 backdrop-blur-xl shadow-2xl transition-all duration-500 ease-in-out border-t border-white/10 animate-in slide-in-from-top duration-300">
+        <div className="fixed top-0 left-0 right-0 w-full z-50 md:hidden bg-gradient-to-b from-black via-purple-900 to-black backdrop-blur-3xl shadow-2xl transition-all duration-500 ease-in-out border-t border-white/10 animate-in slide-in-from-top duration-300">
           <ul className="flex flex-col gap-2 py-6 px-4">
             {MenuItems.map((item, index) => (
               <li key={item.id} className="transform transition-all duration-300" style={{ animationDelay: `${index * 100}ms` }}>
