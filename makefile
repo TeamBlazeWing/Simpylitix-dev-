@@ -22,6 +22,6 @@ start-backend:
 start-frontend:
 	cd Frontend && npm run dev
 
-# Start both backend and frontend in parallel
+# Start both backend and frontend in separate terminals (instructions)
 start-all:
-	$(MAKE) start-backend & $(MAKE) start-frontend
+	@echo "Please run 'make start-backend' and 'make start-frontend' in separate terminals."

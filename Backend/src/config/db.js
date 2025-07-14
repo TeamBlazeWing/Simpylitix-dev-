@@ -7,7 +7,7 @@ async function connectDB() {
     await mongoose.connect(mongoURI, {
       dbName: 'simplytix_Development_DB', // Optional: set DB name here or inside URI
     });
-    console.log('✅ MongoDB connected with Mongoose');
+    console.log('🖳.....🍃');
   } catch (err) {
     console.error('❌ MongoDB connection error:', err.message);
     process.exit(1);
