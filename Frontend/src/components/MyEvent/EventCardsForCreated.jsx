@@ -42,7 +42,7 @@ const EventCardsForCreated = ({
                       e.stopPropagation();
                       onNotifyAttendees && onNotifyAttendees(event);
                     }}
-                    className="flex items-center justify-center gap-2 bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 font-semibold py-2 rounded-lg shadow-md transition-all duration-300"
+                    className="flex items-center justify-center gap-2 bg-gradient-to-r from-purple-400 to-purple-500 hover:from-purple-500 hover:to-purple-600 text-gray-900 font-semibold py-2 rounded-lg shadow-md transition-all duration-300"
                   >
                     <FaBell className="text-lg" /> Notify All
                   </button>

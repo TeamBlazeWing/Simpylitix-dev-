@@ -569,7 +569,7 @@ const Myevents = () => {
         const errorData = await eventResponse.json().catch(() => ({}));
         throw new Error(errorData.message || 'Failed to fetch event details');
       }
-
+      
       const eventData = await eventResponse.json();
       const currentEvent = eventData.event || eventData;
 
@@ -581,7 +581,7 @@ const Myevents = () => {
           return;
         }
       }
-
+      console.log('Editing event:', currentEvent);
       setEditingEvent(currentEvent);
       setShowCreateForm(true);
 

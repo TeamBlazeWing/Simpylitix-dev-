@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FaTimes, FaPlus, FaTrash } from 'react-icons/fa';
 import { isTokenValid, clearAuthData } from '../../utils/auth';
 
-const CreateEventForm = ({ isOpen, onClose, onEventCreated, editingEvent = null }) => {
+const CreateEventForm = ({ isOpen, onClose, onEventCreated, editingEvent=null }) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',

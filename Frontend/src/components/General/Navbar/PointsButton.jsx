@@ -11,7 +11,7 @@ const PointsButton = ({ userPoints, setUserPoints, isPointsPopupOpen, setIsPoint
         className={`flex items-center gap-2 text-white font-bold px-5 py-2 rounded-full shadow-lg backdrop-blur-sm border border-white/20 transition-all duration-300 hover:scale-105 hover:shadow-2xl ${
           isZeroPoints
             ? 'bg-gradient-to-r from-red-600/90 via-red-500/90 to-red-600/90 hover:shadow-red-500/40 animate-pulse'
-            : 'bg-gradient-to-r from-purple-600/90 via-blue-600/90 to-emerald-600/90 hover:shadow-purple-500/25'
+            : 'bg-gradient-to-r from-gray-600/90 via-gray-600/90 to-gray-600/90 hover:shadow-purple-500/25'
         }`}
         onClick={() => setIsPointsPopupOpen((prev) => !prev)}
         title={isZeroPoints ? 'No points available! Add points now.' : `${userPoints} points available`}
@@ -53,7 +53,7 @@ const PointsButton = ({ userPoints, setUserPoints, isPointsPopupOpen, setIsPoint
 
       {/* Points Popup */}
       {isPointsPopupOpen && (
-        <div className="absolute top-14 right-0 z-50 bg-gradient-to-br from-gray-900/95 via-purple-900/95 to-blue-900/95 text-white p-5 rounded-2xl shadow-2xl border border-white/10 backdrop-blur-xl space-y-4 w-64 animate-slideUp">
+        <div className="absolute top-14 right-0 z-50 bg-gradient-to-br from-gray-900/95 via-gray-900/95 to-gray-900/95 text-white p-5 rounded-2xl shadow-2xl border border-white/10 backdrop-blur-xl space-y-4 w-64 animate-slideUp">
           {/* Popup Header */}
           <div className="flex justify-between items-center">
             <h4 className="text-xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-blue-200 to-emerald-200 drop-shadow-md">
@@ -75,7 +75,7 @@ const PointsButton = ({ userPoints, setUserPoints, isPointsPopupOpen, setIsPoint
                   setUserPoints((prev) => prev + amount);
                   setIsPointsPopupOpen(false);
                 }}
-                className="flex-1 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600/90 via-blue-600/90 to-emerald-600/90 text-white font-semibold text-sm shadow-lg border border-white/20 backdrop-blur-sm hover:scale-105 hover:from-purple-700/90 hover:via-blue-700/90 hover:to-emerald-700/90 hover:shadow-xl hover:shadow-purple-500/30 active:scale-95 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-purple-400/50 focus:ring-offset-2 focus:ring-offset-gray-900/50 disabled:opacity-70 disabled:cursor-not-allowed group"
+                className="flex-1 px-4 py-2 rounded-xl bg-gradient-to-r from-gay-600/90 via-blue-600/90 to-emerald-600/90 text-white font-semibold text-sm shadow-lg border border-white/20 backdrop-blur-sm hover:scale-105 hover:from-purple-700/90 hover:via-blue-700/90 hover:to-emerald-700/90 hover:shadow-xl hover:shadow-purple-500/30 active:scale-95 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-purple-400/50 focus:ring-offset-2 focus:ring-offset-gray-900/50 disabled:opacity-70 disabled:cursor-not-allowed group"
               >
                 <span className="flex items-center justify-center gap-2">
                   <svg
