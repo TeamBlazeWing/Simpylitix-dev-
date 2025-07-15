@@ -7,10 +7,13 @@ import MenuItems from "./Navbar/MenuItems";
 import ProfileDropdown from "./Navbar/ProfileDropdown";
 import NotificationsDropdown from "./Navbar/NotificationsDropdown";
 import SubscriptionDropdown from "./Navbar/SubscriptionDropdown";
+import PointsButton from "./Navbar/PointsButton";
 import { isTokenValid } from "./Navbar/utils";
 import "./Navbar/styles.css";
 
 const Navbar = ({ username, onLogout }) => {
+  const [isPointsPopupOpen, setIsPointsPopupOpen] = useState(false);
+
   const [isOpen, setIsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -25,6 +28,7 @@ const Navbar = ({ username, onLogout }) => {
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpError, setOtpError] = useState("");
   const [userPhoneNumber, setUserPhoneNumber] = useState("");
+  const [userPoints, setUserPoints] = useState(0); // <-- Add state for points
   const profileRef = useRef(null);
   const notificationRef = useRef(null);
   const subscriptionRef = useRef(null);
@@ -134,6 +138,7 @@ const Navbar = ({ username, onLogout }) => {
       }
       const userData = await response.json();
       console.log("User profile data:", userData);
+       // <-- Set points from profile
       const isActive = userData.subscriptionStatus === "active";
       setSubscriptionStatus({
         status: userData.subscriptionStatus || "inactive",
@@ -155,6 +160,48 @@ const Navbar = ({ username, onLogout }) => {
     }
   };
 
+  useEffect(() => {
+    const token = localStorage.getItem("accessToken");
+    if (token && isTokenValid(token)) {
+      fetchUserPoints();
+      getSubscriptionStatus();
+    } else {
+      setUserPoints(0); // Default to 0 if no valid token
+      setSubscriptionStatus({
+        status: "inactive",
+        message: "Please log in to check subscription status",
+        isActive: false,
+      });
+    }
+  }, []);
+  const fetchUserPoints = async () => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      if (!token || !isTokenValid(token)) {
+        console.log("No access token found or token is invalid");
+        if (token && !isTokenValid(token)) {
+          handleLogout();
+        }
+        return;
+      }
+      const response = await fetch("/api/users/profile", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const userData = await response.json();
+      console.log("User profile data:", userData);
+      setUserPoints(userData.points || 0); // <-- Set points from profile
+    } catch (error) {
+      console.error("Error fetching user points:", error);
+      setUserPoints(0); // Default to 0 if there's an error
+    }
+  };
   const toggleSubscription = async () => {
     try {
       setSubscriptionLoading(true);
@@ -224,6 +271,7 @@ const Navbar = ({ username, onLogout }) => {
       }
       const userData = await profileResponse.json();
       const phoneNumber = userData.mobile || userData.phone;
+      
       if (!phoneNumber) {
         setOtpError("Phone number not found in profile. Please update your profile first.");
         return;
@@ -375,7 +423,7 @@ const Navbar = ({ username, onLogout }) => {
   return (
     <nav className="w-full min-w-[400px] bg-gradient-to-r from-black/20 via-purple-900/20 to-black/20 backdrop-blur-xl shadow-2xl relative z-[1000] border-b border-white/10">
       <div className="flex items-center justify-between px-4 py-4 md:px-6">
-        <div className="flex items-center space-x-3 mr-10 group cursor-pointer" onClick={() => navigate("/dashboard")}>
+        <div className="flex items-center space-x-3 mr-10 group cursor-pointer" onClick={() => navigate("/dashboard")}> 
           <div className="relative">
             <img
               src="/simplytix.svg"
@@ -390,6 +438,14 @@ const Navbar = ({ username, onLogout }) => {
         </div>
         <MenuItems isOpen={isOpen} setIsOpen={setIsOpen} location={location} username={username} handleLogout={handleLogout} />
         <div className="flex items-center gap-2">
+        {/* Show user points in the navbar with interactive PointsButton */}
+        <PointsButton
+          userPoints={userPoints}
+          setUserPoints={setUserPoints}
+          isPointsPopupOpen={isPointsPopupOpen}
+          setIsPointsPopupOpen={setIsPointsPopupOpen}
+        />
+
           <SubscriptionDropdown
             subscriptionRef={subscriptionRef}
             isSubscriptionOpen={isSubscriptionOpen}
