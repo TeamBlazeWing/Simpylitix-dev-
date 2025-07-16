@@ -11,6 +11,7 @@
     "api": "node mock-server.js"
   },
   "dependencies": {
+    "@emailjs/browser": "^4.4.1",
     "@tailwindcss/vite": "^4.0.12",
     "aos": "^2.3.4",
     "cors": "^2.8.5",
