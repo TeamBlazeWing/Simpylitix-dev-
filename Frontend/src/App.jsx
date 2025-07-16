@@ -8,6 +8,7 @@ import Contactus from './Pages/Contactus'
 import Payment from './Pages/Payment' 
 import MyTickets from './Pages/MyTickets'
 import Myevents from './Pages/Myevents'
+import TicketPayments from './Pages/ticketpayments'
 
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
         <Route path="/mytickets" element={<MyTickets />} />
         <Route path="/payment" element={<Payment />} />
         <Route path="/myevents" element={<Myevents />} />
+        <Route path="/ticketpayments" element={<TicketPayments />} />
         {/* Add more routes as needed */}
       </Routes>
     </Router>

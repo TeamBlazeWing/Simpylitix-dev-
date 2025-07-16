@@ -1,8 +1,16 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FaPlusCircle, FaTimes, FaBolt } from 'react-icons/fa';
 
 const PointsButton = ({ userPoints, setUserPoints, isPointsPopupOpen, setIsPointsPopupOpen }) => {
   const isZeroPoints = userPoints === 0;
+  const navigate = useNavigate();
+
+  const handleAddPoints = (amount) => {
+    // Navigate to TicketPayments with the selected points amount
+    navigate('/ticketpayments', { state: { pointsToAdd: amount } });
+    setIsPointsPopupOpen(false);
+  };
 
   return (
     <div className="relative inline-block select-none">
@@ -71,11 +79,8 @@ const PointsButton = ({ userPoints, setUserPoints, isPointsPopupOpen, setIsPoint
             {[10, 20, 30, 150].map((amount) => (
               <button
                 key={amount}
-                onClick={() => {
-                  setUserPoints((prev) => prev + amount);
-                  setIsPointsPopupOpen(false);
-                }}
-                className="flex-1 px-4 py-2 rounded-xl bg-gradient-to-r from-gay-600/90 via-blue-600/90 to-emerald-600/90 text-white font-semibold text-sm shadow-lg border border-white/20 backdrop-blur-sm hover:scale-105 hover:from-purple-700/90 hover:via-blue-700/90 hover:to-emerald-700/90 hover:shadow-xl hover:shadow-purple-500/30 active:scale-95 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-purple-400/50 focus:ring-offset-2 focus:ring-offset-gray-900/50 disabled:opacity-70 disabled:cursor-not-allowed group"
+                onClick={() => handleAddPoints(amount)}
+                className="flex-1 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600/90 via-blue-600/90 to-emerald-600/90 text-white font-semibold text-sm shadow-lg border border-white/20 backdrop-blur-sm hover:scale-105 hover:from-purple-700/90 hover:via-blue-700/90 hover:to-emerald-700/90 hover:shadow-xl hover:shadow-purple-500/30 active:scale-95 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-purple-400/50 focus:ring-offset-2 focus:ring-offset-gray-900/50 disabled:opacity-70 disabled:cursor-not-allowed group"
               >
                 <span className="flex items-center justify-center gap-2">
                   <svg
