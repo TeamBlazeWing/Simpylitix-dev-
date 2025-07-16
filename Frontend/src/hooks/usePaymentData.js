@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatCardNumber, formatExpiryDate, formatPhoneNumber, validateField, getCardType } from "../utils/paymentUtils";
-import emailjs from "@emailjs/browser"; // Import EmailJS
+import emailjs from "@emailjs/browser";
+import QRCode from "qrcode"; // Import qrcode library
 
 const usePaymentData = () => {
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -226,32 +227,94 @@ const usePaymentData = () => {
         `🎉 Purchase Successful!\n\n` +
         `${totalTickets} ${ticketText} for "${selectedEvent.title}" have been purchased successfully!\n` +
         `\nTicket Details:${ticketBreakdown}\n\n` +
-        `📧 Confirmation emails sent to: ${formData.email}\n` +
+        `📧 Confirmation emails with QR codes sent to: ${formData.email}\n` +
         `📱 SMS confirmation sent to: ${formData.phone}\n\n` +
         `Your tickets will be available in your account and sent via email shortly.\n\n` +
         `Total paid: $${(getTotalPrice() + 2.99).toFixed(2)}`;
 
       alert(successMessage);
 
-      // Send separate emails for each ticket
+      // Send separate emails for each ticket with QR code
       const serviceID = "default_service";
       const templateID = "template_gl1790n";
       let emailErrors = [];
 
+      // Assume result.tickets contains the ticket data with ticketCode
+      const purchasedTickets = result.data || []; // Adjust based on actual API response structure
+      let ticketIndex = 0;
+
       for (const ticket of ticketSummary) {
-        // Loop through each ticket's quantity to send one email per ticket
         for (let i = 0; i < ticket.quantity; i++) {
+          if (ticketIndex >= purchasedTickets.length) {
+            emailErrors.push(`Ticket ${i + 1} (${ticket.type}): No ticket data available`);
+            continue;
+          }
+
+          const ticketData = purchasedTickets[ticketIndex];
+          const ticketCode = `SimplyTix-Ticket:${ticketData.ticketCode}`;
+          console.log(`Processing ticket ${i + 1} of ${ticket.type} with code: ${ticketCode}`);
+          ticketIndex++;
+
+          // Generate QR code
+          let qrCodeDataUrl;
+          try {
+            qrCodeDataUrl = await QRCode.toDataURL(ticketCode, {
+              errorCorrectionLevel: "H",
+              type: "image/png",
+              margin: 1,
+            });
+          } catch (err) {
+            console.error(`Error generating QR code for ticket ${ticketCode}:`, err);
+            emailErrors.push(`Ticket ${i + 1} (${ticket.type}): QR code generation failed`);
+            continue;
+          }
+
+          // Convert data URL to Blob for upload
+          const responseBlob = await fetch(qrCodeDataUrl);
+          const blob = await responseBlob.blob();
+          const formDataForUpload = new FormData();
+          formDataForUpload.append("image", blob, `qrcode_${ticketCode}.png`);
+
+          // Upload QR code to server
+          let imageUrl = "https://example.com/default-image.jpg"; // Fallback URL
+          try {
+            const uploadResponse = await fetch("http://localhost:3000/api/upload/image", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              body: formDataForUpload,
+            });
+
+            if (!uploadResponse.ok) {
+              const errorData = await uploadResponse.json().catch(() => ({}));
+              throw new Error(errorData.message || "Image upload failed");
+            }
+
+            const uploadData = await uploadResponse.json();
+            console.log("Image uploaded successfully:", uploadData);
+            imageUrl = uploadData.data.secure_url || uploadData.data.url;
+            console.log("Image URL:", imageUrl);
+          } catch (err) {
+            console.error(`Error uploading QR code for ticket ${ticketCode}:`, err);
+            emailErrors.push(`Ticket ${i + 1} (${ticket.type}): QR code upload failed - ${err.message}`);
+            continue;
+          }
+
+          // Prepare email data
           const emailData = {
-            order_id: `ORDER_${eventId}_${Date.now()}_${ticket.type}_${i + 1}`, // Unique ID for each ticket
-            orders: `1x ${ticket.type}`, // One ticket per email
-            image_url: selectedEvent.image || "https://example.com/default-image.jpg",
-            name: formData.fullName,
-            units: "1", // One ticket per email
+            order_id: `ORDER_${eventId}_${Date.now()}_${ticket.type}_${i + 1}`,
+            orders: `1x ${ticket.type}`,
+            image_url: imageUrl,
+            name: `1x ${ticket.type}`,
+            units: "1",
             price: ticket.price.toFixed(2),
-            cost: ticket.price.toFixed(2), // Cost per ticket (no processing fee per ticket)
+            cost: ticket.price.toFixed(2),
             email: formData.email,
+            ticket_code: ticketCode, // Include ticketCode in email if needed
           };
 
+          // Send email
           try {
             await emailjs.send(serviceID, templateID, emailData);
             console.log(`Email sent successfully for ticket ${i + 1} of ${ticket.type} to: ${formData.email}`);
