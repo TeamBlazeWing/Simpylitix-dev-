@@ -36,6 +36,7 @@ const usePaymentData = () => {
     if (eventData) {
       const event = JSON.parse(eventData);
       console.log("Loaded event from localStorage:", event);
+      localStorage.setItem("selEvent", JSON.stringify(event)); // Ensure it's stored correctly
       console.log("Event ID fields:", { _id: event._id, id: event.id });
 
       if (event.tickets && event.tickets.length > 0) {
@@ -301,12 +302,14 @@ const usePaymentData = () => {
             continue;
           }
 
+          const selectedEventData = localStorage.getItem("selEvent");
+          const selectedEvents = JSON.parse(selectedEventData);
           // Prepare email data
           const emailData = {
             order_id: `ORDER_${eventId}_${Date.now()}_${ticket.type}_${i + 1}`,
             orders: `1x ${ticket.type}`,
             image_url: imageUrl,
-            name: `1x ${ticket.type}`,
+            name: `${selectedEvents.title} 1x ${ticket.type}`,
             units: "1",
             price: ticket.price.toFixed(2),
             cost: ticket.price.toFixed(2),
