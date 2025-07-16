@@ -196,9 +196,13 @@ const CreateEventForm = ({ isOpen, onClose, onEventCreated, editingEvent=null })
       }
 
       const data = await response.json();
+      console.log('Image uploaded successfully:', data);
+      const imagelink = data.data.secure_url || data.data.url;
+      console.log('Image URL:', imagelink);
+
       setFormData((prev) => ({
         ...prev,
-        imageUrl: data.imageUrl || data.url,
+        imageUrl: imagelink,
       }));
       alert('✅ Image uploaded successfully!');
     } catch (error) {

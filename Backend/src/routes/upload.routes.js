@@ -1,12 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const cloudinary = require('../utils/cloudinary');
+const upload = require('../middlewares/upload.middleware');
 const auth = require('../middlewares/auth.middleware');
 
 // Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, '../../uploads');
+/*const uploadsDir = path.join(__dirname, '../../uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -39,7 +38,7 @@ const upload = multer({
   },
   fileFilter: fileFilter
 });
-
+*/
 /**
  * @swagger
  * /api/upload/image:
@@ -64,26 +63,18 @@ const upload = multer({
  *         description: Unauthorized
  */
 router.post('/image', auth, upload.single('image'), (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
+  cloudinary.uploader.upload(req.file.path, function(error, result) {
+    if (error) {
+      return res.status(400).json({ error: 'Image upload failed', details: error });
     }
-
-    // Construct the URL for the uploaded file
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-    const filePath = `/uploads/${req.file.filename}`;
-    const imageUrl = `${baseUrl}${filePath}`;
-
-    return res.status(200).json({
+    res.status(200).json({
+      success: true,
       message: 'Image uploaded successfully',
-      imageUrl: imageUrl,
-      filepath: filePath,
-      url: imageUrl // For backward compatibility
+      data: result
+      
     });
-  } catch (error) {
-    console.error('Error uploading image:', error);
-    return res.status(500).json({ message: 'Failed to upload image', error: error.message });
   }
+);
 });
 
 module.exports = router;
