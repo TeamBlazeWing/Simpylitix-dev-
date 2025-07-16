@@ -1,4 +1,5 @@
-import { FaTicket, FaMagnifyingGlass, FaFilter } from "react-icons/fa6";
+import { FaTicket, FaMagnifyingGlass, FaFilter, FaRegClock, FaCircleXmark } from "react-icons/fa6";
+import { FaCheckCircle } from "react-icons/fa";
 import Navbar from "../components/General/Navbar";
 import Footer from "../components/General/Footer";
 import { ImageSlider } from "../components/General/ImageSlider";
@@ -68,27 +69,46 @@ const MyTickets = () => {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 text-center border border-white/20 hover:scale-105 transition-all duration-300">
-              <div className="text-3xl font-bold text-white mb-2">{stats.total}</div>
-              <div className="text-gray-300 text-sm">Total Tickets</div>
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6 mb-10">
+            {/* Total Tickets */}
+            <div className="relative group bg-gradient-to-br from-purple-600/80 to-pink-500/80 rounded-2xl p-6 text-center border-2 border-purple-400/30 shadow-xl hover:scale-105 hover:shadow-purple-500/40 transition-all duration-300 cursor-pointer overflow-hidden">
+              <div className="absolute -top-6 -right-6 opacity-20 group-hover:opacity-40 transition-all duration-300">
+                <FaTicket className="text-[6rem] text-white" />
+              </div>
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <FaTicket className="text-3xl text-white drop-shadow-lg animate-bounce" />
+                <span className="text-4xl font-extrabold text-white drop-shadow-lg animate-fade-in-up">{stats.total}</span>
+              </div>
+              <div className="text-white/80 text-base font-semibold tracking-wide">Total Tickets</div>
+              <div className="mt-2 text-xs text-white/60 group-hover:text-white/90 transition">All tickets you own</div>
             </div>
-            <div className="bg-green-500/20 backdrop-blur-xl rounded-2xl p-6 text-center border border-green-500/30 hover:scale-105 transition-all duration-300">
-              <div className="text-3xl font-bold text-green-400 mb-2">{stats.active}</div>
-              <div className="text-gray-300 text-sm">Active</div>
+
+            {/* Active Tickets */}
+            <div className="relative group bg-gradient-to-br from-green-400/80 to-emerald-600/80 rounded-2xl p-6 text-center border-2 border-green-400/30 shadow-xl hover:scale-105 hover:shadow-green-500/40 transition-all duration-300 cursor-pointer overflow-hidden">
+              <div className="absolute -top-6 -right-6 opacity-20 group-hover:opacity-40 transition-all duration-300">
+                <FaCheckCircle className="text-[6rem] text-white" />
+              </div>
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <FaCheckCircle className="text-3xl text-white drop-shadow-lg animate-pulse" />
+                <span className="text-4xl font-extrabold text-white drop-shadow-lg animate-fade-in-up">{stats.active}</span>
+              </div>
+              <div className="text-white/80 text-base font-semibold tracking-wide">Active</div>
+              <div className="mt-2 text-xs text-white/60 group-hover:text-white/90 transition">Tickets ready for use</div>
             </div>
-            <div className="bg-blue-500/20 backdrop-blur-xl rounded-2xl p-6 text-center border border-blue-500/30 hover:scale-105 transition-all duration-300">
-              <div className="text-3xl font-bold text-blue-400 mb-2">{stats.used}</div>
-              <div className="text-gray-300 text-sm">Used</div>
+
+            {/* Used Tickets */}
+            <div className="relative group bg-gradient-to-br from-blue-500/80 to-cyan-400/80 rounded-2xl p-6 text-center border-2 border-blue-400/30 shadow-xl hover:scale-105 hover:shadow-blue-500/40 transition-all duration-300 cursor-pointer overflow-hidden">
+              <div className="absolute -top-6 -right-6 opacity-20 group-hover:opacity-40 transition-all duration-300">
+                <FaRegClock className="text-[6rem] text-white" />
+              </div>
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <FaRegClock className="text-3xl text-white drop-shadow-lg animate-spin-slow" />
+                <span className="text-4xl font-extrabold text-white drop-shadow-lg animate-fade-in-up">{stats.used}</span>
+              </div>
+              <div className="text-white/80 text-base font-semibold tracking-wide">Used</div>
+              <div className="mt-2 text-xs text-white/60 group-hover:text-white/90 transition">Tickets already used</div>
             </div>
-            <div className="bg-red-500/20 backdrop-blur-xl rounded-2xl p-6 text-center border border-red-500/30 hover:scale-105 transition-all duration-300">
-              <div className="text-3xl font-bold text-red-400 mb-2">{stats.cancelled}</div>
-              <div className="text-gray-300 text-sm">Cancelled</div>
-            </div>
-            <div className="bg-gray-500/20 backdrop-blur-xl rounded-2xl p-6 text-center border border-gray-500/30 hover:scale-105 transition-all duration-300">
-              <div className="text-3xl font-bold text-gray-400 mb-2">{stats.expired}</div>
-              <div className="text-gray-300 text-sm">Expired</div>
-            </div>
+
           </div>
 
           {/* Filters and Search */}
@@ -117,8 +137,6 @@ const MyTickets = () => {
                   <option value="all">All Status</option>
                   <option value="active">Active</option>
                   <option value="used">Used</option>
-                  <option value="cancelled">Cancelled</option>
-                  <option value="expired">Expired</option>
                 </select>
               </div>
 
