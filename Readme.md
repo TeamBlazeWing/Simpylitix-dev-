@@ -1,5 +1,4 @@
-# SimplyTix - Online Ticket Booking Platform
-
+# SimplyTix - Modern Event Ticket Booking and Hosting Website
 SimplyTix is a modern web application for seamless online event ticket booking. Users can register, browse events, enroll, purchase tickets, and receive instant notifications and e-tickets. Event organizers can easily manage attendees and verify tickets at the event.
 
 ---
