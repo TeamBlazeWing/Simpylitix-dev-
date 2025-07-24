@@ -53,17 +53,17 @@ Below are screenshots of each page for a better understanding of the user experi
 - **Dashboard**
   ![Dashboard](Screenshots/dashboard.png)
 - **Event List**
-  ![Event List](screenshots/Event.png)
+  ![Event List](Screenshots/Event.png)
 - **Event Details**
-  ![Event Details](screenshots/event_data.png)
+  ![Event Details](Screenshots/event_data.png)
 - **Ticket Purchase**
-  ![Ticket Purchase](screenshots/buy_tickets.png)
+  ![Ticket Purchase](Screenshots/buy_tickets.png)
 - **Tickets Page**
   ![Tickets Page](Screenshots/tickets.png)
 - **Notifications**
-  ![Notifications](screenshots/notifications.png)
+  ![Notifications](Screenshots/notifications.png)
 - **E-Ticket Email**
-  ![E-Ticket Email](screenshots/email-ticket.png)
+  ![E-Ticket Email](Screenshots/email-ticket.png)
 
 ---
 
