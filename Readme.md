@@ -47,21 +47,23 @@ SimplyTix is a modern web application for seamless online event ticket booking. 
 Below are screenshots of each page for a better understanding of the user experience:
 
 - **Login Page**
-  ![Login Page](screenshots/login.png)
+  ![Login Page](Screenshots/login.png)
+- **Signup Page**
+  ![Signup Page](Screenshots/signup.png)
 - **Dashboard**
-  ![Dashboard](screenshots/dashboard.png)
+  ![Dashboard](Screenshots/dashboard.png)
 - **Event List**
-  ![Event List](screenshots/events.png)
+  ![Event List](screenshots/Event.png)
 - **Event Details**
-  ![Event Details](screenshots/event-details.png)
+  ![Event Details](screenshots/event_data.png)
 - **Ticket Purchase**
-  ![Ticket Purchase](screenshots/ticket-purchase.png)
+  ![Ticket Purchase](screenshots/buy_tickets.png)
+- **Tickets Page**
+  ![Tickets Page](Screenshots/tickets.png)
 - **Notifications**
   ![Notifications](screenshots/notifications.png)
 - **E-Ticket Email**
   ![E-Ticket Email](screenshots/email-ticket.png)
-
-> _Add your own screenshots to the `screenshots/` folder for each page as shown above._
 
 ---
 
